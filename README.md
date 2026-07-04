@@ -34,10 +34,17 @@ See [TOKENOMICS.md](TOKENOMICS.md) for full supply and progression details.
 ### InvestingHook.sol
 - **Real Uniswap v4 `IHooks` implementation** (`afterSwap` only)
 - Deployed via CREATE2 + `HookMiner` so the address encodes `AFTER_SWAP_FLAG`
-- Records INVEST bought per swap into the NFT contract (positive swap delta on INVEST side)
+- **Canonical pool only** — ignores swaps from pools that are not INVEST/WETH
+- Records INVEST bought per swap (positive swap delta on INVEST side)
+- **Router-safe attribution** — generic routers without `hookData` are ignored; use `InvestingSwapRouter`
 - **1,000 INVEST minimum** per swap to count (anti-wash)
 - Emits `SwapOccurred` and `InvestRecorded` events for indexers/frontends
 - Does NOT mint NFTs — claiming is user-initiated
+
+### InvestingSwapRouter.sol
+- Production swap router for the INVEST/WETH pool
+- Automatically passes `abi.encode(msg.sender)` as `hookData` so traders earn volume
+- Deployed alongside core contracts via `DeployInvesting.s.sol`
 
 ## Security
 
@@ -47,8 +54,10 @@ This implementation addresses critical vulnerabilities found in early Unipeg-sty
 ✅ **Removed risky auto-minting from hook**: Hook only records volume, claiming is user-initiated  
 ✅ **Swap-based claiming**: Levels come from cumulative INVEST bought, not balance at claim time  
 ✅ **No flash loan claim exploits**: Volume is recorded at swap time in the hook  
-✅ **Minimal hook permissions**: Hook only needs `afterSwap` access  
-✅ **Production v4 integration**: Implements `IHooks`, validates permissions, PoolManager-only entry
+✅ **Canonical pool validation**: Hook only counts INVEST/WETH pool swaps  
+✅ **Router attribution**: Generic routers without hookData are ignored; use `InvestingSwapRouter`  
+✅ **Claim gas cap**: Max 20 feathers per `claimNextFeather()` call  
+✅ **Deployer-only setHook**: Prevents front-running hook wiring
 
 ## Deployment
 
@@ -81,7 +90,7 @@ forge script script/DeployInvesting.s.sol:DeployInvesting \
   --verifier-url https://explorer.testnet.chain.robinhood.com/api/
 ```
 
-Set `INVEST_IS_TOKEN0=true` when INVEST sorts before WETH, `POOL_MANAGER` to reuse an existing manager, or leave unset to deploy a new one.
+Set `WETH_ADDRESS` in `.env`. Token sort order (`INVEST` as token0 or token1) is derived automatically from addresses at deploy.
 
 ### Initialize pool
 ```bash
@@ -98,9 +107,9 @@ forge script script/DeployPool.s.sol:DeployPool \
 ## Usage
 
 1. **Provide liquidity**: Add liquidity to the INVEST/WETH v4 pool
-2. **Trade**: Swap $INVEST on the pool (swaps ≥ 1,000 INVEST count toward levels)
+2. **Trade**: Swap via **`InvestingSwapRouter`** (or pass `abi.encode(yourAddress)` as swap `hookData`)
 3. **Claim**: Call `claimNextFeather()` on the InvestingNFT contract
-   - Mints all pending levels in one transaction
+   - Mints up to **20** pending levels per transaction (call again for more)
    - Sell your tokens anytime — earned levels stay with your wallet
 
 ## Frontend

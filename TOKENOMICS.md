@@ -24,6 +24,13 @@ Progression is **swap-earned**, not balance-held:
 | Level 10 | 1M cumulative buys |
 | Level 100 | 10M cumulative buys |
 | Min swap to count | **1,000** $INVEST per swap (anti-wash) |
+| Max claim per tx | **20** feather levels |
+
+## Swapping
+
+Use **`InvestingSwapRouter`** for swaps. It auto-attributes volume to `msg.sender`.
+
+Generic v4 routers (e.g. Uniswap `V4Router`) do **not** credit traders unless you pass `abi.encode(trader)` as `hookData`.
 
 ## NFTs
 
@@ -40,6 +47,7 @@ The hook does not take swap fees. Any pool LP fee is set at pool creation (defau
 
 - Only the verified hook address may record swap volume.
 - Hook permission: `afterSwap` only (minimal attack surface).
+- Hook only counts swaps on the canonical INVEST/WETH pool pair.
 - Claiming uses `nonReentrant` and never checks wallet balance at claim time.
 - Hook address must be mined with `AFTER_SWAP_FLAG` via CREATE2.
 
