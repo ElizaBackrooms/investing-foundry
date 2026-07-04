@@ -1,21 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 100 100">
-  <!-- Level 1: Simple down feather -->
-  <!-- Quill base -->
-  <path d="M50 90 Q50 85 50 80" stroke="#8B4513" stroke-width="3" fill="none"/>
-  <!-- Shaft -->
-  <line x1="50" y1="80" x2="50" y2="25" stroke="#DEB887" stroke-width="2"/>
-  <!-- Barbs left -->
-  <path d="M50 80 Q35 70 30 75 Q40 68 50 75" fill="#FF6B6B"/>
-  <path d="M50 70 Q30 60 25 65 Q38 55 50 65" fill="#FF6B6B"/>
-  <path d="M50 60 Q32 48 28 52 Q40 42 50 55" fill="#FF6B6B"/>
-  <path d="M50 50 Q35 35 32 38 Q42 30 50 45" fill="#FF6B6B"/>
-  <path d="M50 40 Q40 25 38 27 Q45 20 50 35" fill="#FF6B6B"/>
-  <!-- Barbs right -->
-  <path d="M50 80 Q65 70 70 75 Q60 68 50 75" fill="#FF6B6B"/>
-  <path d="M50 70 Q70 60 75 65 Q62 55 50 65" fill="#FF6B6B"/>
-  <path d="M50 60 Q68 48 72 52 Q60 42 50 55" fill="#FF6B6B"/>
-  <path d="M50 50 Q65 35 68 38 Q58 30 50 45" fill="#FF6B6B"/>
-  <path d="M50 40 Q60 25 62 27 Q55 20 50 35" fill="#FF6B6B"/>
-  <!-- Tip -->
-  <path d="M50 25 Q45 15 50 5 Q55 15 50 25" fill="#FF6B6B"/>
+  <!-- Level 1: base feather at 40% scale -->
+  <g transform="translate(50,50) scale(0.4) translate(-46,-50)">
+    <path d="M46 97 L45 4 C30 12 21 32 20 50 C19 68 25 82 35 92 C38 95 41 96 46 97 C51 96 54 95 57 92 C67 82 73 68 72 50 C71 32 62 12 47 4 Z" fill="#FF6B6B"/>
+    <line x1="46" y1="97" x2="45.5" y2="3" stroke="#3E2723" stroke-width="1.2"/>
+  </g>
 </svg>

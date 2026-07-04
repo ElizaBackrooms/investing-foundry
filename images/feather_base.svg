@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 100 100">
-  <!-- Level 10: full base feather (100% scale) -->
-  <g transform="translate(50,50) scale(1) translate(-46,-50)">
+  <!-- Canonical base feather (level 10). All tiers derive from this silhouette. -->
+  <g id="feather-base">
     <path d="M46 97 L45 4 C30 12 21 32 20 50 C19 68 25 82 35 92 C38 95 41 96 46 97 C51 96 54 95 57 92 C67 82 73 68 72 50 C71 32 62 12 47 4 Z" fill="#FFD166"/>
     <path d="M46 97 L45.5 4 C34 10 27 26 26 42 C25 58 29 72 36 84 C38 89 41 94 46 97 C51 94 54 89 56 84 C63 72 67 58 66 42 C65 26 58 10 46.5 4 Z" fill="#FFE08A" opacity="0.55"/>
     <line x1="46" y1="97" x2="45.5" y2="3" stroke="#C9A020" stroke-width="1.3"/>
