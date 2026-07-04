@@ -55,7 +55,8 @@ contract InvestingTest is Test {
     }
 
     function test_tokenMaxSupply() public view {
-        assertEq(token.totalSupply(), 10_000 * 10 ** token.decimals());
+        assertEq(token.totalSupply(), 1_000_000_000 * 10 ** token.decimals());
+        assertEq(token.MAX_SUPPLY(), 1_000_000_000 ether);
     }
 
     function test_claimNextFeather_mintsBasedOnSwapVolume() public {
@@ -146,27 +147,19 @@ contract InvestingTest is Test {
         assertEq(_prefix(uri, 19), "data:image/svg+xml,");
     }
 
-    function test_tokenURI_percentEncodesHashInColors() public {
-        _simulateInvestBuy(alice, 1 ether);
-
-        vm.prank(alice);
-        nft.claimNextFeather();
-
-        string memory uri = nft.tokenURI(0);
-        assertTrue(_contains(uri, "%23FFA500"));
-    }
-
-    function test_tokenURI_level10IsLargerThanLevel1() public {
-        _simulateInvestBuy(alice, 10 ether);
+    function test_tokenURI_level1IsFullBaseFeather() public {
+        _simulateInvestBuy(alice, 2 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
 
         string memory level1Uri = nft.tokenURI(0);
-        string memory level10Uri = nft.tokenURI(9);
+        string memory level2Uri = nft.tokenURI(1);
 
-        assertTrue(bytes(level10Uri).length > bytes(level1Uri).length);
-        assertTrue(_contains(level10Uri, "ellipse"));
+        assertTrue(_contains(level1Uri, "ellipse"));
+        assertTrue(_contains(level1Uri, "%23FFD166"));
+        assertTrue(_contains(level2Uri, "ellipse"));
+        assertEq(bytes(level1Uri).length, bytes(level2Uri).length);
     }
 
     function test_hook_recordsVolumeWithoutMinting() public {

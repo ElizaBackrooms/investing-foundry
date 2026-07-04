@@ -3,20 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import {InvestingConfig} from "./InvestingConfig.sol";
 
 /**
  * @title Investing NFT
  * @notice ERC721 feather NFTs earned by trading $INVEST on the hooked pool.
- * @dev Levels come from cumulative INVEST bought via swaps (recorded by the hook),
- *      not from wallet balance at claim time.
+ * @dev Level 1 is the full base feather (gold). Higher levels reuse that art with new colors.
  */
 contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
-    using Strings for uint256;
-
-    uint256 private constant BASE_LEVEL = 10;
-    uint256 private constant MIN_SCALE_BPS = 4000;
-    uint256 private constant MAX_SCALE_BPS = 10000;
+    uint256 public constant TOKENS_PER_LEVEL = InvestingConfig.TOKENS_PER_LEVEL;
 
     uint256 private _nextTokenId;
 
@@ -26,11 +21,12 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
 
     address public hook;
 
-    string[8] private palette = [
+    string private constant BASE_GOLD = "#FFD166";
+
+    string[7] private accentPalette = [
         "#FF6B6B",
         "#FFA500",
         "#4ECDC4",
-        "#FFD166",
         "#FF00FF",
         "#00FFFF",
         "#800080",
@@ -50,9 +46,6 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
 
     constructor() ERC721("Investing", "INVEST") {}
 
-    /**
-     * @dev One-time hook wiring after both contracts are deployed.
-     */
     function setHook(address _hook) external {
         if (hook != address(0)) revert HookAlreadySet();
         if (_hook == address(0)) revert HookZero();
@@ -60,10 +53,6 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
         emit HookUpdated(_hook);
     }
 
-    /**
-     * @dev Called by InvestingHook when a user buys INVEST on the pool.
-     *      Cumulative volume sets how many feather levels they may claim.
-     */
     function recordInvestFromSwap(address user, uint256 amount) external onlyHook {
         if (user == address(0) || amount == 0) {
             return;
@@ -72,12 +61,9 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
     }
 
     function eligibleLevel(address user) public view returns (uint256) {
-        return investAccumulated[user] / 1e18;
+        return investAccumulated[user] / TOKENS_PER_LEVEL;
     }
 
-    /**
-     * @dev Mint feather NFTs up to swap-earned level. No token balance required.
-     */
     function claimNextFeather() public nonReentrant {
         uint256 level = eligibleLevel(msg.sender);
 
@@ -100,127 +86,56 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
         uint256 level = tokenIdToLevel[tokenId];
-        string memory color = palette[level % palette.length];
-        string memory svg = _buildFeatherSvg(level, color);
+        string memory svg = _buildFeatherSvg(_featherColor(level));
         return string(abi.encodePacked("data:image/svg+xml,", _urlEncode(svg)));
     }
 
-    function _buildFeatherSvg(uint256 level, string memory color) internal pure returns (string memory) {
-        uint256 tier = level > BASE_LEVEL ? BASE_LEVEL : (level == 0 ? 1 : level);
-        uint256 scaleBps = MIN_SCALE_BPS + ((tier - 1) * (MAX_SCALE_BPS - MIN_SCALE_BPS)) / (BASE_LEVEL - 1);
-        string memory scale = _formatScale(scaleBps);
-        uint256 barbRows = tier >= 8 ? 10 : (tier >= 5 ? 6 : (tier >= 3 ? 3 : 0));
+    function _featherColor(uint256 level) internal view returns (string memory) {
+        if (level == 1) {
+            return BASE_GOLD;
+        }
+        return accentPalette[(level - 2) % accentPalette.length];
+    }
 
+    /**
+     * @dev Level 1 uses the full ornate base feather. All levels share this silhouette.
+     */
+    function _buildFeatherSvg(string memory color) internal pure returns (string memory) {
         string memory svg = string(
             abi.encodePacked(
                 "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 100 100'>",
                 "<rect width='100' height='100' fill='%23000'/>",
-                "<g transform='translate(50,50) scale(",
-                scale,
-                ") translate(-46,-50)'>",
+                "<g transform='translate(50,50) scale(1) translate(-46,-50)'>",
                 "<path d='M46 97 L45 4 C30 12 21 32 20 50 C19 68 25 82 35 92 C38 95 41 96 46 97 C51 96 54 95 57 92 C67 82 73 68 72 50 C71 32 62 12 47 4 Z' fill='",
                 color,
-                "'/>"
+                "'/>",
+                "<path d='M46 97 L45.5 4 C34 10 27 26 26 42 C25 58 29 72 36 84 C38 89 41 94 46 97 C51 94 54 89 56 84 C63 72 67 58 66 42 C65 26 58 10 46.5 4 Z' fill='",
+                color,
+                "' opacity='0.45'/>",
+                "<line x1='46' y1='97' x2='45.5' y2='3' stroke='%23C9A020' stroke-width='1.3'/>",
+                "<rect x='43.5' y='94' width='5.5' height='5' rx='1' fill='%233E2723'/>",
+                "<ellipse cx='46' cy='96' rx='2' ry='1.2' fill='%235D4037'/>",
+                "<g stroke='",
+                color,
+                "' stroke-width='0.3' opacity='0.55'>",
+                "<line x1='46' y1='90' x2='24' y2='86'/><line x1='46' y1='90' x2='68' y2='86'/>",
+                "<line x1='46' y1='80' x2='22' y2='74'/><line x1='46' y1='80' x2='70' y2='74'/>",
+                "<line x1='46' y1='70' x2='21' y2='63'/><line x1='46' y1='70' x2='71' y2='63'/>",
+                "<line x1='46' y1='60' x2='20' y2='52'/><line x1='46' y1='60' x2='72' y2='52'/>",
+                "<line x1='46' y1='50' x2='21' y2='41'/><line x1='46' y1='50' x2='71' y2='41'/>",
+                "<line x1='46' y1='40' x2='23' y2='30'/><line x1='46' y1='40' x2='69' y2='30'/>",
+                "<line x1='46' y1='30' x2='26' y2='19'/><line x1='46' y1='30' x2='66' y2='19'/>",
+                "<line x1='46' y1='20' x2='30' y2='11'/><line x1='46' y1='20' x2='62' y2='11'/>",
+                "<line x1='46' y1='12' x2='35' y2='6'/><line x1='46' y1='12' x2='57' y2='6'/>",
+                "<line x1='46' y1='6' x2='42' y2='3'/><line x1='46' y1='6' x2='50' y2='3'/>",
+                "</g>",
+                "<path d='M46 8 Q44 2 46 0 Q48 2 46 8' fill='",
+                color,
+                "'/>",
+                "</g></svg>"
             )
         );
-
-        if (tier >= 5) {
-            svg = string(
-                abi.encodePacked(
-                    svg,
-                    "<path d='M46 97 L45.5 4 C34 10 27 26 26 42 C25 58 29 72 36 84 C38 89 41 94 46 97 C51 94 54 89 56 84 C63 72 67 58 66 42 C65 26 58 10 46.5 4 Z' fill='",
-                    color,
-                    "' opacity='0.45'/>"
-                )
-            );
-        }
-
-        svg = string(
-            abi.encodePacked(
-                svg,
-                "<line x1='46' y1='97' x2='45.5' y2='3' stroke='%233E2723' stroke-width='1.2'/>"
-            )
-        );
-
-        if (tier >= 3) {
-            svg = string(
-                abi.encodePacked(
-                    svg,
-                    "<rect x='43.5' y='94' width='5.5' height='5' rx='1' fill='%233E2723'/>"
-                )
-            );
-        }
-
-        if (barbRows > 0) {
-            svg = string(abi.encodePacked(svg, "<g stroke='", color, "' stroke-width='0.35' opacity='0.5'>"));
-            svg = string(abi.encodePacked(svg, _barbRows(barbRows)));
-            svg = string(abi.encodePacked(svg, "</g>"));
-        }
-
-        if (tier >= BASE_LEVEL) {
-            svg = string(
-                abi.encodePacked(
-                    svg,
-                    "<ellipse cx='46' cy='96' rx='2' ry='1.2' fill='%235D4037'/>",
-                    "<path d='M46 8 Q44 2 46 0 Q48 2 46 8' fill='",
-                    color,
-                    "'/>"
-                )
-            );
-        }
-
-        svg = string(abi.encodePacked(svg, "</g></svg>"));
         return svg;
-    }
-
-    function _barbRows(uint256 rows) internal pure returns (string memory) {
-        if (rows >= 10) {
-            return string(
-                abi.encodePacked(
-                    "<line x1='46' y1='90' x2='24' y2='86'/><line x1='46' y1='90' x2='68' y2='86'/>",
-                    "<line x1='46' y1='80' x2='22' y2='74'/><line x1='46' y1='80' x2='70' y2='74'/>",
-                    "<line x1='46' y1='70' x2='21' y2='63'/><line x1='46' y1='70' x2='71' y2='63'/>",
-                    "<line x1='46' y1='60' x2='20' y2='52'/><line x1='46' y1='60' x2='72' y2='52'/>",
-                    "<line x1='46' y1='50' x2='21' y2='41'/><line x1='46' y1='50' x2='71' y2='41'/>",
-                    "<line x1='46' y1='40' x2='23' y2='30'/><line x1='46' y1='40' x2='69' y2='30'/>",
-                    "<line x1='46' y1='30' x2='26' y2='19'/><line x1='46' y1='30' x2='66' y2='19'/>",
-                    "<line x1='46' y1='20' x2='30' y2='11'/><line x1='46' y1='20' x2='62' y2='11'/>",
-                    "<line x1='46' y1='12' x2='35' y2='6'/><line x1='46' y1='12' x2='57' y2='6'/>",
-                    "<line x1='46' y1='6' x2='42' y2='3'/><line x1='46' y1='6' x2='50' y2='3'/>"
-                )
-            );
-        }
-        if (rows >= 6) {
-            return string(
-                abi.encodePacked(
-                    "<line x1='46' y1='88' x2='28' y2='84'/><line x1='46' y1='88' x2='64' y2='84'/>",
-                    "<line x1='46' y1='74' x2='26' y2='68'/><line x1='46' y1='74' x2='66' y2='68'/>",
-                    "<line x1='46' y1='60' x2='24' y2='52'/><line x1='46' y1='60' x2='68' y2='52'/>",
-                    "<line x1='46' y1='46' x2='25' y2='37'/><line x1='46' y1='46' x2='67' y2='37'/>",
-                    "<line x1='46' y1='32' x2='28' y2='22'/><line x1='46' y1='32' x2='64' y2='22'/>",
-                    "<line x1='46' y1='18' x2='34' y2='12'/><line x1='46' y1='18' x2='58' y2='12'/>"
-                )
-            );
-        }
-        return string(
-            abi.encodePacked(
-                "<line x1='46' y1='80' x2='32' y2='76'/><line x1='46' y1='80' x2='60' y2='76'/>",
-                "<line x1='46' y1='60' x2='30' y2='54'/><line x1='46' y1='60' x2='62' y2='54'/>",
-                "<line x1='46' y1='40' x2='32' y2='32'/><line x1='46' y1='40' x2='60' y2='32'/>"
-            )
-        );
-    }
-
-    function _formatScale(uint256 scaleBps) internal pure returns (string memory) {
-        if (scaleBps >= 10000) {
-            return "1";
-        }
-        uint256 whole = scaleBps / 1000;
-        uint256 frac = (scaleBps % 1000) / 100;
-        if (frac == 0) {
-            return string(abi.encodePacked("0.", Strings.toString(whole)));
-        }
-        return string(abi.encodePacked("0.", Strings.toString(whole), Strings.toString(frac)));
     }
 
     function _urlEncode(string memory str) internal pure returns (string memory) {
