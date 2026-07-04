@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 100 100">
+  <!-- Level 3: Growing feather - orange -->
+  <path d="M50 92 Q50 86 49 81" stroke="#8B4513" stroke-width="3.5" fill="none"/>
+  <path d="M49 81 Q49.5 48 50 18" stroke="#DEB887" stroke-width="2.2" fill="none"/>
+  <path d="M49 81 Q30 73 24 76 Q36 69 49 74" fill="#FFA500"/>
+  <path d="M49 72 Q26 63 20 66 Q34 56 49 65" fill="#FFA500"/>
+  <path d="M49 63 Q28 52 22 55 Q36 45 49 56" fill="#FFA500"/>
+  <path d="M49 54 Q32 40 27 43 Q38 33 49 47" fill="#FFA500"/>
+  <path d="M50 45 Q38 30 34 33 Q44 24 50 38" fill="#FFA500"/>
+  <path d="M49 81 Q70 73 76 76 Q64 69 49 74" fill="#FFA500"/>
+  <path d="M49 72 Q74 63 80 66 Q66 56 49 65" fill="#FFA500"/>
+  <path d="M49 63 Q72 52 78 55 Q64 45 49 56" fill="#FFA500"/>
+  <path d="M49 54 Q68 40 73 43 Q62 33 49 47" fill="#FFA500"/>
+  <path d="M50 45 Q62 30 66 33 Q56 24 50 38" fill="#FFA500"/>
+  <path d="M50 18 Q44 8 50 4 Q56 8 50 18" fill="#FFA500"/>
+</svg>
