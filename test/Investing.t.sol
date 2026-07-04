@@ -121,8 +121,22 @@ contract InvestingTest is Test {
         nft.claimNextFeather();
 
         string memory uri = nft.tokenURI(0);
-        assertTrue(_contains(uri, "%2300FF00"));
-        assertFalse(_contains(uri, "#00FF00"));
+        assertTrue(_contains(uri, "%23FFA500"));
+        assertFalse(_contains(uri, "#FFA500"));
+    }
+
+    function test_tokenURI_level10IsLargerThanLevel1() public {
+        token.transfer(alice, 10 ether);
+
+        vm.startPrank(alice);
+        nft.claimNextFeather();
+        vm.stopPrank();
+
+        string memory level1Uri = nft.tokenURI(0);
+        string memory level10Uri = nft.tokenURI(9);
+
+        assertTrue(bytes(level10Uri).length > bytes(level1Uri).length);
+        assertTrue(_contains(level10Uri, "ellipse"));
     }
 
     function test_hook_emitsEventsWithoutMinting() public {

@@ -1,21 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 100 100">
-  <!-- Level 7: Advanced feather - purple -->
-  <path d="M50 96 Q50 89 48 83" stroke="#5D4037" stroke-width="4.5" fill="none"/>
-  <ellipse cx="50" cy="93" rx="2.5" ry="1.8" fill="#3E2723"/>
-  <path d="M48 83 Q49 48 50 12" stroke="#D2B48C" stroke-width="2.8" fill="none"/>
-  <path d="M48 83 Q22 77 14 81 Q30 73 48 77" fill="#800080"/>
-  <path d="M48 75 Q20 67 12 71 Q28 61 48 69" fill="#800080"/>
-  <path d="M49 67 Q22 57 14 61 Q30 51 49 61" fill="#800080"/>
-  <path d="M49 59 Q24 47 17 51 Q32 41 49 53" fill="#800080"/>
-  <path d="M49 51 Q28 37 22 41 Q34 31 49 45" fill="#800080"/>
-  <path d="M50 43 Q34 29 29 33 Q40 23 50 37" fill="#800080"/>
-  <path d="M50 35 Q40 21 36 25 Q46 16 50 29" fill="#800080"/>
-  <path d="M48 83 Q78 77 86 81 Q70 73 48 77" fill="#800080"/>
-  <path d="M48 75 Q80 67 88 71 Q72 61 48 69" fill="#800080"/>
-  <path d="M49 67 Q78 57 86 61 Q70 51 49 61" fill="#800080"/>
-  <path d="M49 59 Q76 47 83 51 Q68 41 49 53" fill="#800080"/>
-  <path d="M49 51 Q72 37 78 41 Q66 31 49 45" fill="#800080"/>
-  <path d="M50 43 Q66 29 71 33 Q60 23 50 37" fill="#800080"/>
-  <path d="M50 35 Q60 21 64 25 Q54 16 50 29" fill="#800080"/>
-  <path d="M50 12 Q42 1 50 -3 Q58 1 50 12" fill="#9932CC"/>
+  <!-- Level 7: base feather at ~80% scale -->
+  <g transform="translate(50,50) scale(0.8) translate(-46,-50)">
+    <path d="M46 97 L45 4 C30 12 21 32 20 50 C19 68 25 82 35 92 C38 95 41 96 46 97 C51 96 54 95 57 92 C67 82 73 68 72 50 C71 32 62 12 47 4 Z" fill="#800080"/>
+    <path d="M46 97 L45.5 4 C34 10 27 26 26 42 C25 58 29 72 36 84 C38 89 41 94 46 97 C51 94 54 89 56 84 C63 72 67 58 66 42 C65 26 58 10 46.5 4 Z" fill="#800080" opacity="0.45"/>
+    <line x1="46" y1="97" x2="45.5" y2="3" stroke="#3E2723" stroke-width="1.2"/>
+    <rect x="43.5" y="94" width="5.5" height="5" rx="1" fill="#3E2723"/>
+    <g stroke="#800080" stroke-width="0.35" opacity="0.5">
+      <line x1="46" y1="88" x2="28" y2="84"/><line x1="46" y1="88" x2="64" y2="84"/>
+      <line x1="46" y1="74" x2="26" y2="68"/><line x1="46" y1="74" x2="66" y2="68"/>
+      <line x1="46" y1="60" x2="24" y2="52"/><line x1="46" y1="60" x2="68" y2="52"/>
+      <line x1="46" y1="46" x2="25" y2="37"/><line x1="46" y1="46" x2="67" y2="37"/>
+      <line x1="46" y1="32" x2="28" y2="22"/><line x1="46" y1="32" x2="64" y2="22"/>
+      <line x1="46" y1="18" x2="34" y2="12"/><line x1="46" y1="18" x2="58" y2="12"/>
+    </g>
+  </g>
 </svg>
