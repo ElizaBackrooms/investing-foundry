@@ -15,12 +15,16 @@ contract DeployInvesting is Script {
         vm.startBroadcast();
 
         InvestingToken investingToken = new InvestingToken();
-        InvestingNFT investingNFT = new InvestingNFT(address(investingToken));
-        InvestingHook investingHook = new InvestingHook(address(investingToken), address(investingNFT));
+        InvestingNFT investingNFT = new InvestingNFT();
+        // Set true when INVEST is token0 in the pool, false when token1.
+        bool investIsToken0 = vm.envOr("INVEST_IS_TOKEN0", true);
+        InvestingHook investingHook = new InvestingHook(address(investingNFT), investIsToken0);
+        investingNFT.setHook(address(investingHook));
 
         console.log("Deployed InvestingToken at:", address(investingToken));
         console.log("Deployed InvestingNFT at:", address(investingNFT));
         console.log("Deployed InvestingHook at:", address(investingHook));
+        console.log("INVEST is token0:", investIsToken0);
         console.log("Create a Uniswap v4 pool with the hook address above and WETH from WETH_ADDRESS");
 
         vm.stopBroadcast();
