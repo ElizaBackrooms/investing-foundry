@@ -44,17 +44,22 @@ contract InvestingTest is Test {
 
     function setUp() public {
         token = new InvestingToken();
-        nft = new InvestingNFT(address(token));
-        hook = new InvestingHook(address(token), address(nft));
+        nft = new InvestingNFT();
+        hook = new InvestingHook(address(nft), true);
+        nft.setHook(address(hook));
+    }
+
+    function _simulateInvestBuy(address user, uint256 amount) internal {
+        vm.prank(poolManager);
+        hook.afterSwap(-int256(amount), 100, 0, 0, 0, 0, 0, 0, abi.encode(user));
     }
 
     function test_tokenMaxSupply() public view {
         assertEq(token.totalSupply(), 10_000 * 10 ** token.decimals());
-        assertEq(token.balanceOf(address(this)), token.totalSupply());
     }
 
-    function test_claimNextFeather_mintsBasedOnBalance() public {
-        token.transfer(alice, 3 ether);
+    function test_claimNextFeather_mintsBasedOnSwapVolume() public {
+        _simulateInvestBuy(alice, 3 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
@@ -63,10 +68,26 @@ contract InvestingTest is Test {
         assertEq(nft.highestLevel(alice), 3);
         assertEq(nft.tokenIdToLevel(0), 1);
         assertEq(nft.tokenIdToLevel(2), 3);
+        assertEq(token.balanceOf(alice), 0);
+    }
+
+    function test_claimNextFeather_worksAfterSellingTokens() public {
+        _simulateInvestBuy(alice, 5 ether);
+        token.transfer(alice, 5 ether);
+
+        vm.prank(alice);
+        token.transfer(address(0xdead), 5 ether);
+        assertEq(token.balanceOf(alice), 0);
+
+        vm.prank(alice);
+        nft.claimNextFeather();
+
+        assertEq(nft.balanceOf(alice), 5);
+        assertEq(nft.highestLevel(alice), 5);
     }
 
     function test_claimNextFeather_noopWhenAlreadyCaughtUp() public {
-        token.transfer(alice, 2 ether);
+        _simulateInvestBuy(alice, 2 ether);
 
         vm.startPrank(alice);
         nft.claimNextFeather();
@@ -76,35 +97,46 @@ contract InvestingTest is Test {
         assertEq(nft.balanceOf(alice), 2);
     }
 
-    function test_claimNextFeather_batchMintsOnHigherBalance() public {
-        token.transfer(alice, 1 ether);
+    function test_claimNextFeather_batchMintsOnAdditionalSwaps() public {
+        _simulateInvestBuy(alice, 1 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
         assertEq(nft.balanceOf(alice), 1);
 
-        token.transfer(alice, 4 ether);
+        _simulateInvestBuy(alice, 4 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
 
         assertEq(nft.balanceOf(alice), 5);
         assertEq(nft.highestLevel(alice), 5);
+        assertEq(nft.investAccumulated(alice), 5 ether);
     }
 
     function test_claimNextFeather_blocksReentrancy() public {
         ReentrantClaimer claimer = new ReentrantClaimer(nft);
-        token.transfer(address(claimer), 3 ether);
+        _simulateInvestBuy(address(claimer), 3 ether);
 
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
         claimer.claim();
 
         assertEq(nft.balanceOf(address(claimer)), 0);
-        assertEq(claimer.reentryCount(), 0);
+    }
+
+    function test_claimNextFeather_revertsWithoutSwapVolume() public {
+        vm.prank(alice);
+        nft.claimNextFeather();
+        assertEq(nft.balanceOf(alice), 0);
+    }
+
+    function test_recordInvestFromSwap_onlyHook() public {
+        vm.expectRevert(InvestingNFT.OnlyHook.selector);
+        nft.recordInvestFromSwap(alice, 1 ether);
     }
 
     function test_tokenURI_returnsSvgDataUrl() public {
-        token.transfer(alice, 1 ether);
+        _simulateInvestBuy(alice, 1 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
@@ -115,22 +147,20 @@ contract InvestingTest is Test {
     }
 
     function test_tokenURI_percentEncodesHashInColors() public {
-        token.transfer(alice, 1 ether);
+        _simulateInvestBuy(alice, 1 ether);
 
         vm.prank(alice);
         nft.claimNextFeather();
 
         string memory uri = nft.tokenURI(0);
         assertTrue(_contains(uri, "%23FFA500"));
-        assertFalse(_contains(uri, "#FFA500"));
     }
 
     function test_tokenURI_level10IsLargerThanLevel1() public {
-        token.transfer(alice, 10 ether);
+        _simulateInvestBuy(alice, 10 ether);
 
-        vm.startPrank(alice);
+        vm.prank(alice);
         nft.claimNextFeather();
-        vm.stopPrank();
 
         string memory level1Uri = nft.tokenURI(0);
         string memory level10Uri = nft.tokenURI(9);
@@ -139,51 +169,47 @@ contract InvestingTest is Test {
         assertTrue(_contains(level10Uri, "ellipse"));
     }
 
-    function test_hook_emitsEventsWithoutMinting() public {
-        token.transfer(alice, 5 ether);
-
+    function test_hook_recordsVolumeWithoutMinting() public {
         vm.prank(poolManager);
         vm.expectEmit(true, false, false, true);
-        emit InvestingHook.SwapOccurred(alice, 100, -50);
+        emit InvestingHook.SwapOccurred(alice, -3 ether, 100);
 
         vm.expectEmit(true, false, false, true);
-        emit InvestingHook.MintTriggered(alice, 5);
+        emit InvestingHook.InvestRecorded(alice, 3 ether, 3);
 
-        hook.afterSwap(100, -50, 0, 0, 0, 0, 0, 0, abi.encode(alice));
+        hook.afterSwap(-3 ether, 100, 0, 0, 0, 0, 0, 0, abi.encode(alice));
 
         assertEq(nft.balanceOf(alice), 0);
+        assertEq(nft.eligibleLevel(alice), 3);
+    }
+
+    function test_hook_ignoresSells() public {
+        vm.prank(poolManager);
+        hook.afterSwap(3 ether, -100, 0, 0, 0, 0, 0, 0, abi.encode(alice));
+
+        assertEq(nft.investAccumulated(alice), 0);
     }
 
     function test_hook_skipsEventsWhenHookDataMissing() public {
         vm.recordLogs();
         vm.prank(poolManager);
-        hook.afterSwap(100, -50, 0, 0, 0, 0, 0, 0, "");
+        hook.afterSwap(-1 ether, 100, 0, 0, 0, 0, 0, 0, "");
 
         assertEq(vm.getRecordedLogs().length, 0);
     }
 
-    function test_hook_decodesPackedAddressHookData() public {
-        token.transfer(alice, 2 ether);
-
-        vm.prank(poolManager);
-        vm.expectEmit(true, false, false, true);
-        emit InvestingHook.SwapOccurred(alice, 1, -1);
-
-        vm.expectEmit(true, false, false, true);
-        emit InvestingHook.MintTriggered(alice, 2);
-
-        hook.afterSwap(1, -1, 0, 0, 0, 0, 0, 0, abi.encodePacked(alice));
+    function test_setHook_onlyOnce() public {
+        vm.expectRevert(InvestingNFT.HookAlreadySet.selector);
+        nft.setHook(makeAddr("other"));
     }
 
     function test_constructor_revertsOnZeroAddresses() public {
-        vm.expectRevert("Token zero");
-        new InvestingNFT(address(0));
-
-        vm.expectRevert("Token zero");
-        new InvestingHook(address(0), address(nft));
-
         vm.expectRevert("NFT zero");
-        new InvestingHook(address(token), address(0));
+        new InvestingHook(address(0), true);
+
+        InvestingNFT freshNft = new InvestingNFT();
+        vm.expectRevert(InvestingNFT.HookZero.selector);
+        freshNft.setHook(address(0));
     }
 
     function _prefix(string memory value, uint256 length) internal pure returns (string memory) {

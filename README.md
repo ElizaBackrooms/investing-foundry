@@ -6,8 +6,9 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 
 **Key Mechanics:**
 - Trade $INVEST on Uniswap v4 (with our hook attached)
-- Hook emits events on swaps (no risky minting in hook)
-- Users call `claimNextFeather()` to mint NFTs based on their current $INVEST balance
+- Hook records cumulative INVEST **bought** on each swap
+- Your feather level = total INVEST bought / 1 token (lifetime swap volume)
+- Users call `claimNextFeather()` to mint NFTs — **no token balance required at claim**
 - Each NFT represents a "version" of investing (v1, v2, v3...) with unique feather art
 - On-chain SVG generation - no IPFS needed
 
@@ -20,24 +21,24 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 ### InvestingNFT.sol
 - ERC721 token representing "Investing" feather NFTs
 - **Claim-based minting**: Users must call `claimNextFeather()` to mint
-- Checks real token balance: can only claim level N if holding ≥ N $INVEST
-- On-chain SVG feather generation with color/height variations
-- Trusts only the verified InvestingToken address (set at deployment)
+- **Swap-earned levels**: Hook records cumulative INVEST purchased; claim uses that volume, not wallet balance
+- On-chain SVG feather generation (level 10 base silhouette)
+- Only the verified hook address may record swap volume
 
 ### InvestingHook.sol
 - Uniswap v4 hook that attaches to a pool
-- Emits `SwapOccurred` and `MintTriggered` events on swaps
-- Does NOT perform minting directly (eliminates exploit vectors)
-- Users claim NFTs separately via `claimNextFeather()` on the NFT contract
+- Records INVEST bought per swap into the NFT contract
+- Emits `SwapOccurred` and `InvestRecorded` events for indexers/frontends
+- Does NOT mint NFTs — claiming is user-initiated
 
 ## Security
 
 This implementation addresses critical vulnerabilities found in early Unipeg-style projects:
 
-✅ **Fixed untrusted token address vulnerability**: NFT contract stores trusted token address at construction
-✅ **Removed risky auto-minting from hook**: Hook only emits events, claiming is user-initiated  
-✅ **Balance-based claiming**: Users can only claim NFTs up to their actual token balance
-✅ **No flash loan exploits**: Fake balance attacks prevented by trusted token address
+✅ **Fixed untrusted token address vulnerability**: Only the deployed hook can record swap volume
+✅ **Removed risky auto-minting from hook**: Hook only records volume, claiming is user-initiated  
+✅ **Swap-based claiming**: Levels come from cumulative INVEST bought, not balance at claim time
+✅ **No flash loan claim exploits**: Volume is recorded at swap time in the hook
 ✅ **Minimal hook permissions**: Hook only needs `afterSwap` access
 
 ## Deployment
@@ -117,10 +118,10 @@ forge snapshot
 
 ```
 User → [Uniswap v4 Pool (with InvestingHook)] 
-                     ↓ (swap events)
-InvestingHook → emits SwapOccurred + MintTriggered events
-                     ↓ (calls NFT contract)
-InvestingNFT → claimNextFeather() → checks balance → mints if eligible
+                     ↓ (swap: INVEST bought)
+InvestingHook → recordInvestFromSwap() → investAccumulated[user] += amount
+                     ↓ (user calls claim)
+InvestingNFT → claimNextFeather() → mints feathers up to eligible level
                      ↓
 User receives Investing Feather NFT (on-chain SVG)
 ```

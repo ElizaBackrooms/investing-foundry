@@ -4,46 +4,82 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import {IInvestingToken} from "./interfaces/IInvestingToken.sol";
 
 /**
  * @title Investing NFT
- * @notice ERC721 token for the Investing project on Robinhood Chain.
- * @dev On-chain SVG feathers derived from the level-10 base silhouette.
+ * @notice ERC721 feather NFTs earned by trading $INVEST on the hooked pool.
+ * @dev Levels come from cumulative INVEST bought via swaps (recorded by the hook),
+ *      not from wallet balance at claim time.
  */
 contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
     using Strings for uint256;
 
     uint256 private constant BASE_LEVEL = 10;
-    uint256 private constant MIN_SCALE_BPS = 4000; // level 1 ~= 40% of base
-    uint256 private constant MAX_SCALE_BPS = 10000; // level 10 = full base size
+    uint256 private constant MIN_SCALE_BPS = 4000;
+    uint256 private constant MAX_SCALE_BPS = 10000;
 
     uint256 private _nextTokenId;
 
     mapping(uint256 => uint256) public tokenIdToLevel;
     mapping(address => uint256) public highestLevel;
+    mapping(address => uint256) public investAccumulated;
+
+    address public hook;
 
     string[8] private palette = [
-        "#FF6B6B", // Red-coral
-        "#FFA500", // Orange
-        "#4ECDC4", // Teal
-        "#FFD166", // Gold
-        "#FF00FF", // Magenta
-        "#00FFFF", // Cyan
-        "#800080", // Purple
-        "#00FF00" // Green
+        "#FF6B6B",
+        "#FFA500",
+        "#4ECDC4",
+        "#FFD166",
+        "#FF00FF",
+        "#00FFFF",
+        "#800080",
+        "#00FF00"
     ];
 
-    address public immutable investingToken;
+    event HookUpdated(address indexed hook);
 
-    constructor(address _investingToken) ERC721("Investing", "INVEST") {
-        require(_investingToken != address(0), "Token zero");
-        investingToken = _investingToken;
+    error OnlyHook();
+    error HookAlreadySet();
+    error HookZero();
+
+    modifier onlyHook() {
+        if (msg.sender != hook) revert OnlyHook();
+        _;
     }
 
+    constructor() ERC721("Investing", "INVEST") {}
+
+    /**
+     * @dev One-time hook wiring after both contracts are deployed.
+     */
+    function setHook(address _hook) external {
+        if (hook != address(0)) revert HookAlreadySet();
+        if (_hook == address(0)) revert HookZero();
+        hook = _hook;
+        emit HookUpdated(_hook);
+    }
+
+    /**
+     * @dev Called by InvestingHook when a user buys INVEST on the pool.
+     *      Cumulative volume sets how many feather levels they may claim.
+     */
+    function recordInvestFromSwap(address user, uint256 amount) external onlyHook {
+        if (user == address(0) || amount == 0) {
+            return;
+        }
+        investAccumulated[user] += amount;
+    }
+
+    function eligibleLevel(address user) public view returns (uint256) {
+        return investAccumulated[user] / 1e18;
+    }
+
+    /**
+     * @dev Mint feather NFTs up to swap-earned level. No token balance required.
+     */
     function claimNextFeather() public nonReentrant {
-        uint256 balance = IInvestingToken(investingToken).balanceOf(msg.sender);
-        uint256 level = balance / 1e18;
+        uint256 level = eligibleLevel(msg.sender);
 
         if (level <= highestLevel[msg.sender]) {
             return;
@@ -69,10 +105,6 @@ contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
         return string(abi.encodePacked("data:image/svg+xml,", _urlEncode(svg)));
     }
 
-    /**
-     * @dev Level 10 is the canonical base feather. Lower levels use the same
-     *      silhouette scaled down with fewer barb details.
-     */
     function _buildFeatherSvg(uint256 level, string memory color) internal pure returns (string memory) {
         uint256 tier = level > BASE_LEVEL ? BASE_LEVEL : (level == 0 ? 1 : level);
         uint256 scaleBps = MIN_SCALE_BPS + ((tier - 1) * (MAX_SCALE_BPS - MIN_SCALE_BPS)) / (BASE_LEVEL - 1);
