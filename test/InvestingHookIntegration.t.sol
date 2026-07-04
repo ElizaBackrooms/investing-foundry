@@ -9,9 +9,7 @@ import {SwapParams, ModifyLiquidityParams} from "@uniswap/v4-core/src/types/Pool
 import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
-import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
-import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiquidityTest.sol";
 import {Constants} from "@uniswap/v4-core/test/utils/Constants.sol";
 import {SortTokens} from "@uniswap/v4-core/test/utils/SortTokens.sol";
@@ -19,12 +17,13 @@ import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import "../src/InvestingToken.sol";
 import "../src/InvestingNFT.sol";
 import "../src/InvestingHook.sol";
+import "../src/InvestingSwapRouter.sol";
 import "../src/InvestingConfig.sol";
 import "../src/utils/HookMiner.sol";
 
 contract InvestingHookIntegrationTest is Test {
     IPoolManager internal manager;
-    PoolSwapTest internal swapRouter;
+    InvestingSwapRouter internal swapRouter;
     PoolModifyLiquidityTest internal modifyLiquidityRouter;
     InvestingToken internal investToken;
     MockERC20 internal weth;
@@ -37,7 +36,7 @@ contract InvestingHookIntegrationTest is Test {
 
     function setUp() public {
         manager = new PoolManager(address(this));
-        swapRouter = new PoolSwapTest(manager);
+        swapRouter = new InvestingSwapRouter(manager);
         modifyLiquidityRouter = new PoolModifyLiquidityTest(manager);
 
         investToken = new InvestingToken();
@@ -45,15 +44,14 @@ contract InvestingHookIntegrationTest is Test {
         nft = new InvestingNFT();
 
         MockERC20 investAsMock = MockERC20(address(investToken));
-        bool investIsToken0 = address(investAsMock) < address(weth);
 
         (address hookAddress, bytes32 salt) = HookMiner.find(
             address(this),
             uint160(Hooks.AFTER_SWAP_FLAG),
             type(InvestingHook).creationCode,
-            abi.encode(manager, address(nft), investIsToken0)
+            abi.encode(manager, address(nft), address(investToken), address(weth))
         );
-        hook = new InvestingHook{salt: salt}(manager, address(nft), investIsToken0);
+        hook = new InvestingHook{salt: salt}(manager, address(nft), address(investToken), address(weth));
         assertEq(address(hook), hookAddress);
         nft.setHook(address(hook));
 
@@ -79,10 +77,7 @@ contract InvestingHookIntegrationTest is Test {
         );
     }
 
-    function test_swapRecordsBuyVolumeThroughPoolManager() public {
-        PoolSwapTest.TestSettings memory settings =
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
-
+    function test_swapRouterRecordsBuyVolumeForTrader() public {
         bool investIsToken0 = Currency.unwrap(key.currency0) == address(investToken);
         SwapParams memory params = SwapParams({
             zeroForOne: !investIsToken0,
@@ -91,7 +86,7 @@ contract InvestingHookIntegrationTest is Test {
         });
 
         vm.prank(trader);
-        swapRouter.swap(key, params, settings, abi.encode(trader));
+        swapRouter.swap(key, params);
 
         assertGt(nft.investAccumulated(trader), InvestingConfig.MIN_SWAP_VOLUME);
         assertEq(nft.balanceOf(trader), 0);

@@ -8,6 +8,7 @@ import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
 import "../src/InvestingToken.sol";
 import "../src/InvestingHook.sol";
 import "../src/InvestingNFT.sol";
+import "../src/InvestingSwapRouter.sol";
 import "../src/utils/HookMiner.sol";
 
 /**
@@ -21,7 +22,7 @@ contract DeployInvesting is Script {
         InvestingToken investingToken = new InvestingToken();
         InvestingNFT investingNFT = new InvestingNFT();
 
-        bool investIsToken0 = vm.envOr("INVEST_IS_TOKEN0", true);
+        address weth = vm.envAddress("WETH_ADDRESS");
         address poolManagerAddr = vm.envOr("POOL_MANAGER", address(0));
         IPoolManager poolManager =
             poolManagerAddr == address(0) ? new PoolManager(address(this)) : IPoolManager(poolManagerAddr);
@@ -30,21 +31,24 @@ contract DeployInvesting is Script {
             address(this),
             uint160(Hooks.AFTER_SWAP_FLAG),
             type(InvestingHook).creationCode,
-            abi.encode(poolManager, address(investingNFT), investIsToken0)
+            abi.encode(poolManager, address(investingNFT), address(investingToken), weth)
         );
 
-        InvestingHook investingHook = new InvestingHook{salt: salt}(poolManager, address(investingNFT), investIsToken0);
+        InvestingHook investingHook =
+            new InvestingHook{salt: salt}(poolManager, address(investingNFT), address(investingToken), weth);
         require(address(investingHook) == hookAddress, "hook address mismatch");
 
         investingNFT.setHook(address(investingHook));
+        InvestingSwapRouter swapRouter = new InvestingSwapRouter(poolManager);
 
         console.log("Deployed InvestingToken at:", address(investingToken));
         console.log("Deployed InvestingNFT at:", address(investingNFT));
         console.log("Deployed PoolManager at:", address(poolManager));
         console.log("Deployed InvestingHook at:", address(investingHook));
+        console.log("Deployed InvestingSwapRouter at:", address(swapRouter));
         console.log("Hook salt:", vm.toString(salt));
-        console.log("INVEST is token0:", investIsToken0);
-        console.log("Create a Uniswap v4 pool with the hook address above and WETH from WETH_ADDRESS");
+        console.log("INVEST is token0:", address(investingToken) < weth);
+        console.log("Initialize the INVEST/WETH pool with DeployPool.s.sol");
 
         vm.stopBroadcast();
     }

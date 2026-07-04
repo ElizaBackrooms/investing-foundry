@@ -11,6 +11,7 @@ import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {BalanceDelta, toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import "../src/InvestingToken.sol";
 import "../src/InvestingNFT.sol";
 import "../src/InvestingHook.sol";
@@ -44,8 +45,11 @@ interface IERC721Receiver {
         returns (bytes4);
 }
 
+contract RouterStub {}
+
 contract InvestingTest is Test {
     InvestingToken internal token;
+    MockERC20 internal weth;
     InvestingNFT internal nft;
     InvestingHook internal hook;
     IPoolManager internal manager;
@@ -56,6 +60,7 @@ contract InvestingTest is Test {
 
     function setUp() public {
         token = new InvestingToken();
+        weth = new MockERC20("WETH", "WETH", 18);
         nft = new InvestingNFT();
         manager = new PoolManager(address(this));
 
@@ -63,21 +68,22 @@ contract InvestingTest is Test {
             address(this),
             uint160(Hooks.AFTER_SWAP_FLAG),
             type(InvestingHook).creationCode,
-            abi.encode(manager, address(nft), true)
+            abi.encode(manager, address(nft), address(token), address(weth))
         );
 
-        hook = new InvestingHook{salt: salt}(manager, address(nft), true);
+        hook = new InvestingHook{salt: salt}(manager, address(nft), address(token), address(weth));
         assertEq(address(hook), hookAddress);
         nft.setHook(address(hook));
     }
 
-    function _poolKey() internal pure returns (PoolKey memory) {
+    function _poolKey() internal view returns (PoolKey memory) {
+        bool investFirst = address(token) < address(weth);
         return PoolKey({
-            currency0: Currency.wrap(address(0x1)),
-            currency1: Currency.wrap(address(0x2)),
+            currency0: Currency.wrap(investFirst ? address(token) : address(weth)),
+            currency1: Currency.wrap(investFirst ? address(weth) : address(token)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: IHooks(address(0x3))
+            hooks: IHooks(address(hook))
         });
     }
 
@@ -86,7 +92,9 @@ contract InvestingTest is Test {
     }
 
     function _simulateInvestBuy(address user, uint256 amount) internal {
-        BalanceDelta delta = toBalanceDelta(int128(int256(amount)), 0);
+        BalanceDelta delta = hook.investIsToken0()
+            ? toBalanceDelta(int128(int256(amount)), 0)
+            : toBalanceDelta(0, int128(int256(amount)));
         vm.prank(address(manager));
         hook.afterSwap(user, _poolKey(), _swapParams(), delta, abi.encode(user));
     }
@@ -184,6 +192,17 @@ contract InvestingTest is Test {
         assertEq(nft.balanceOf(address(claimer)), 0);
     }
 
+    function test_claimNextFeather_respectsMaxPerTx() public {
+        _simulateInvestBuy(alice, 25 * LEVEL);
+
+        vm.prank(alice);
+        nft.claimNextFeather();
+
+        assertEq(nft.balanceOf(alice), InvestingConfig.MAX_CLAIM_PER_TX);
+        assertEq(nft.highestLevel(alice), InvestingConfig.MAX_CLAIM_PER_TX);
+        assertEq(nft.eligibleLevel(alice), 25);
+    }
+
     function test_claimNextFeather_revertsWithoutSwapVolume() public {
         vm.prank(alice);
         nft.claimNextFeather();
@@ -230,48 +249,99 @@ contract InvestingTest is Test {
     }
 
     function test_hook_recordsVolumeWithoutMinting() public {
+        BalanceDelta delta = hook.investIsToken0()
+            ? toBalanceDelta(int128(int256(3 * LEVEL)), 0)
+            : toBalanceDelta(0, int128(int256(3 * LEVEL)));
+
         vm.prank(address(manager));
         vm.expectEmit(true, false, false, true);
-        emit InvestingHook.SwapOccurred(alice, int128(int256(3 * LEVEL)), 0);
+        emit InvestingHook.SwapOccurred(alice, delta.amount0(), delta.amount1());
 
         vm.expectEmit(true, false, false, true);
         emit InvestingHook.InvestRecorded(alice, 3 * LEVEL, 3);
 
-        hook.afterSwap(
-            alice, _poolKey(), _swapParams(), toBalanceDelta(int128(int256(3 * LEVEL)), 0), abi.encode(alice)
-        );
+        hook.afterSwap(alice, _poolKey(), _swapParams(), delta, abi.encode(alice));
 
         assertEq(nft.balanceOf(alice), 0);
         assertEq(nft.eligibleLevel(alice), 3);
     }
 
     function test_hook_ignoresSells() public {
+        BalanceDelta delta = hook.investIsToken0()
+            ? toBalanceDelta(-int128(int256(3 * LEVEL)), 0)
+            : toBalanceDelta(0, -int128(int256(3 * LEVEL)));
+
         vm.prank(address(manager));
-        hook.afterSwap(
-            alice, _poolKey(), _swapParams(), toBalanceDelta(-int128(int256(3 * LEVEL)), 0), abi.encode(alice)
-        );
+        hook.afterSwap(alice, _poolKey(), _swapParams(), delta, abi.encode(alice));
 
         assertEq(nft.investAccumulated(alice), 0);
     }
 
     function test_hook_skipsDustBelowMinSwapVolume() public {
         uint256 dust = InvestingConfig.MIN_SWAP_VOLUME - 1;
+        BalanceDelta delta =
+            hook.investIsToken0() ? toBalanceDelta(int128(int256(dust)), 0) : toBalanceDelta(0, int128(int256(dust)));
+
         vm.prank(address(manager));
-        hook.afterSwap(alice, _poolKey(), _swapParams(), toBalanceDelta(int128(int256(dust)), 0), abi.encode(alice));
+        hook.afterSwap(alice, _poolKey(), _swapParams(), delta, abi.encode(alice));
+
+        assertEq(nft.investAccumulated(alice), 0);
+    }
+
+    function test_hook_ignoresInvalidPool() public {
+        MockERC20 scam = new MockERC20("SCAM", "SCAM", 18);
+        bool scamFirst = address(scam) < address(weth);
+        PoolKey memory badKey = PoolKey({
+            currency0: Currency.wrap(scamFirst ? address(scam) : address(weth)),
+            currency1: Currency.wrap(scamFirst ? address(weth) : address(scam)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: IHooks(address(hook))
+        });
+        BalanceDelta delta =
+            hook.investIsToken0() ? toBalanceDelta(int128(int256(LEVEL)), 0) : toBalanceDelta(0, int128(int256(LEVEL)));
+
+        vm.prank(address(manager));
+        hook.afterSwap(alice, badKey, _swapParams(), delta, abi.encode(alice));
+
+        assertEq(nft.investAccumulated(alice), 0);
+    }
+
+    function test_hook_ignoresRouterWithoutHookData() public {
+        RouterStub router = new RouterStub();
+        BalanceDelta delta =
+            hook.investIsToken0() ? toBalanceDelta(int128(int256(LEVEL)), 0) : toBalanceDelta(0, int128(int256(LEVEL)));
+
+        vm.prank(address(manager));
+        hook.afterSwap(address(router), _poolKey(), _swapParams(), delta, "");
 
         assertEq(nft.investAccumulated(alice), 0);
     }
 
     function test_hook_usesSenderWhenHookDataMissing() public {
+        BalanceDelta delta =
+            hook.investIsToken0() ? toBalanceDelta(int128(int256(LEVEL)), 0) : toBalanceDelta(0, int128(int256(LEVEL)));
+
         vm.prank(address(manager));
-        hook.afterSwap(alice, _poolKey(), _swapParams(), toBalanceDelta(int128(int256(LEVEL)), 0), "");
+        hook.afterSwap(alice, _poolKey(), _swapParams(), delta, "");
 
         assertEq(nft.investAccumulated(alice), LEVEL);
     }
 
     function test_hook_onlyPoolManager() public {
+        BalanceDelta delta =
+            hook.investIsToken0() ? toBalanceDelta(int128(int256(LEVEL)), 0) : toBalanceDelta(0, int128(int256(LEVEL)));
+
         vm.expectRevert(InvestingHook.OnlyPoolManager.selector);
-        hook.afterSwap(alice, _poolKey(), _swapParams(), toBalanceDelta(int128(int256(LEVEL)), 0), abi.encode(alice));
+        hook.afterSwap(alice, _poolKey(), _swapParams(), delta, abi.encode(alice));
+    }
+
+    function test_setHook_onlyDeployer() public {
+        InvestingNFT freshNft = new InvestingNFT();
+
+        vm.prank(makeAddr("attacker"));
+        vm.expectRevert(InvestingNFT.OnlyDeployer.selector);
+        freshNft.setHook(address(hook));
     }
 
     function test_setHook_onlyOnce() public {
@@ -281,10 +351,13 @@ contract InvestingTest is Test {
 
     function test_constructor_revertsOnZeroAddresses() public {
         vm.expectRevert(InvestingHook.NftZero.selector);
-        new InvestingHook(manager, address(0), true);
+        new InvestingHook(manager, address(0), address(token), address(weth));
+
+        vm.expectRevert(InvestingHook.SameToken.selector);
+        new InvestingHook(manager, address(nft), address(token), address(token));
 
         vm.expectRevert(InvestingHook.PoolManagerZero.selector);
-        new InvestingHook(IPoolManager(address(0)), address(nft), true);
+        new InvestingHook(IPoolManager(address(0)), address(nft), address(token), address(weth));
 
         InvestingNFT freshNft = new InvestingNFT();
         vm.expectRevert(InvestingNFT.HookZero.selector);

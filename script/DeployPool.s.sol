@@ -19,12 +19,13 @@ contract DeployPool is Script {
         address hookAddr = vm.envAddress("HOOK_ADDRESS");
         address investToken = vm.envAddress("INVEST_TOKEN");
         address weth = vm.envAddress("WETH_ADDRESS");
-        bool investIsToken0 = vm.envOr("INVEST_IS_TOKEN0", true);
         uint24 fee = uint24(vm.envOr("POOL_FEE", uint256(3000)));
         int24 tickSpacing = int24(int256(vm.envOr("TICK_SPACING", uint256(60))));
 
-        Currency currency0 = investIsToken0 ? Currency.wrap(investToken) : Currency.wrap(weth);
-        Currency currency1 = investIsToken0 ? Currency.wrap(weth) : Currency.wrap(investToken);
+        require(investToken != weth, "identical tokens");
+
+        Currency currency0 = investToken < weth ? Currency.wrap(investToken) : Currency.wrap(weth);
+        Currency currency1 = investToken < weth ? Currency.wrap(weth) : Currency.wrap(investToken);
 
         PoolKey memory key = PoolKey({
             currency0: currency0, currency1: currency1, fee: fee, tickSpacing: tickSpacing, hooks: IHooks(hookAddr)

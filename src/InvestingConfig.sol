@@ -15,4 +15,7 @@ library InvestingConfig {
 
     /// @dev Minimum INVEST bought in a single swap before volume counts (anti-wash).
     uint256 internal constant MIN_SWAP_VOLUME = 1_000 ether;
+
+    /// @dev Maximum feather levels minted per claim transaction.
+    uint256 internal constant MAX_CLAIM_PER_TX = 20;
 }
