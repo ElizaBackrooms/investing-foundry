@@ -130,7 +130,7 @@ Open `http://localhost:8080`, paste the deployed NFT address, connect your walle
 forge test
 ```
 
-21 tests: unit tests for claiming, hook auth, metadata, anti-wash, plus a v4 PoolManager integration test.
+25 tests: unit tests for claiming, hook auth, metadata, anti-wash, pool validation, router attribution, plus a v4 integration test.
 
 ### Formatting
 ```bash
