@@ -10,7 +10,7 @@
 **Success:** Hook records cumulative INVEST bought. Claim never checks wallet balance. Sell your bags, keep your feathers.
 
 ## GOAL 4: Safe claiming
-**Success:** Hook-only volume recording, reentrancy guard on claim, no auto-mint in hook.
+**Success:** Hook-only volume recording, reentrancy guard on claim, no auto-mint in hook, 1k min swap anti-wash.
 
 ## GOAL 5: Production-ready pipeline
-**Success:** Deploy script wires hook ↔ NFT, env vars documented, 16+ tests green.
+**Success:** Real v4 `IHooks` hook with CREATE2 mining, pool init script, JSON metadata, claim frontend, 21 tests green, TOKENOMICS.md published.
