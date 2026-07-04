@@ -1,0 +1,23 @@
+{
+  "chainId": 4663,
+  "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+  "explorerUrl": "https://robinhoodchain.blockscout.com",
+  "nativeCurrency": {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "investToken": "0x0000000000000000000000000000000000000000",
+  "investNft": "0x0000000000000000000000000000000000000000",
+  "poolManager": "0x0000000000000000000000000000000000000000",
+  "hook": "0x0000000000000000000000000000000000000000",
+  "swapRouter": "0x0000000000000000000000000000000000000000",
+  "weth": "0x0000000000000000000000000000000000000000",
+  "currency0": "0x0000000000000000000000000000000000000000",
+  "currency1": "0x0000000000000000000000000000000000000000",
+  "poolFee": 3000,
+  "tickSpacing": 60,
+  "investIsToken0": true,
+  "poolInitialized": false,
+  "liquidityAdded": false
+}

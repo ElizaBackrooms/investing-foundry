@@ -16,6 +16,8 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 
 See [TOKENOMICS.md](TOKENOMICS.md) for full supply and progression details.
 
+**Documentation:** [LAUNCH.md](LAUNCH.md) · [docs/](docs/) ([Architecture](docs/ARCHITECTURE.md), [Indexer spec](docs/INDEXER.md), [Tokenomics execution](docs/TOKENOMICS_EXECUTION.md))
+
 ## Contracts
 
 ### InvestingToken.sol
@@ -43,7 +45,10 @@ See [TOKENOMICS.md](TOKENOMICS.md) for full supply and progression details.
 
 ### InvestingSwapRouter.sol
 - Production swap router for the INVEST/WETH pool
-- Automatically passes `abi.encode(msg.sender)` as `hookData` so traders earn volume
+- **`buyInvestWithWeth`** — buy INVEST with WETH; volume credited to `msg.sender`
+- **`sellInvestForWeth`** — sell INVEST for WETH; **sells do not earn feather volume**
+- **`swap`** — generic v4 swap on the canonical pool (same `hookData` attribution)
+- Automatically passes `abi.encode(msg.sender)` as `hookData` so traders earn volume on buys
 - Deployed alongside core contracts via `DeployInvesting.s.sol`
 
 ## Security
@@ -104,13 +109,25 @@ forge script script/DeployPool.s.sol:DeployPool \
   --broadcast
 ```
 
+### Add liquidity
+```bash
+forge script script/AddLiquidity.s.sol:AddLiquidity \
+  --rpc-url https://rpc.testnet.chain.robinhood.com \
+  --broadcast
+```
+
+Full env vars and verification steps: [LAUNCH.md](LAUNCH.md).
+
 ## Usage
 
-1. **Provide liquidity**: Add liquidity to the INVEST/WETH v4 pool
-2. **Trade**: Swap via **`InvestingSwapRouter`** (or pass `abi.encode(yourAddress)` as swap `hookData`)
-3. **Claim**: Call `claimNextFeather()` on the InvestingNFT contract
+1. **Provide liquidity**: Add liquidity to the INVEST/WETH v4 pool (see [docs/TOKENOMICS_EXECUTION.md](docs/TOKENOMICS_EXECUTION.md))
+2. **Buy**: Swap via **`InvestingSwapRouter.buyInvestWithWeth`** (or pass `abi.encode(yourAddress)` as swap `hookData`)
+3. **Sell** (optional): Use **`InvestingSwapRouter.sellInvestForWeth`** — exits do not affect earned feather levels
+4. **Claim**: Call `claimNextFeather()` on the InvestingNFT contract
    - Mints up to **20** pending levels per transaction (call again for more)
    - Sell your tokens anytime — earned levels stay with your wallet
+
+See [LAUNCH.md](LAUNCH.md) for the full pre-launch checklist.
 
 ## Frontend
 
@@ -133,7 +150,7 @@ Open `http://localhost:8080`, connect wallet, load config, buy INVEST with WETH 
 forge test
 ```
 
-26 tests: unit tests for claiming, hook auth, metadata, anti-wash, pool validation, router attribution, plus v4 integration tests.
+**28 tests** (24 unit + 3 v4 integration + 1 fuzz): claiming, reentrancy, hook auth, metadata, anti-wash, pool validation, router attribution, sell-after-claim, `buyInvestWithWeth` / `sellInvestForWeth`, and fuzzed buy volume.
 
 ### Formatting
 ```bash
@@ -143,14 +160,15 @@ forge fmt
 ## Architecture
 
 ```
-User → [Uniswap v4 Pool (with InvestingHook)]
-                     ↓ afterSwap: positive INVEST delta
-InvestingHook → recordInvestFromSwap() → investAccumulated[user] += amount
-                     ↓ user calls claim
-InvestingNFT → claimNextFeather() → mints feathers up to eligible level
-                     ↓
-User receives Investing Feather NFT (on-chain JSON + SVG)
+User → InvestingSwapRouter → PoolManager → INVEST/WETH Pool
+                                    ↓ afterSwap (INVEST bought)
+                              InvestingHook → recordInvestFromSwap()
+                                    ↓ user calls claim
+                              InvestingNFT → claimNextFeather() → feather NFTs
 ```
+
+Full diagram, sequence flows, and security properties: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).  
+Indexer / subgraph spec: [docs/INDEXER.md](docs/INDEXER.md).
 
 ## License
 
