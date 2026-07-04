@@ -57,6 +57,24 @@ contract InvestingSwapRouter is IUnlockCallback {
         return _swap(key, params);
     }
 
+    /// @notice Sell INVEST for WETH with an exact INVEST input. Sells do not credit volume.
+    function sellInvestForWeth(PoolKey calldata key, uint128 investAmountIn)
+        external
+        payable
+        returns (BalanceDelta delta)
+    {
+        if (investAmountIn == 0) revert ZeroAmount();
+        _requireCanonicalPool(key);
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: investIsToken0,
+            amountSpecified: -int256(uint256(investAmountIn)),
+            sqrtPriceLimitX96: investIsToken0 ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+        });
+
+        return _swap(key, params);
+    }
+
     function swap(PoolKey calldata key, SwapParams calldata params) external payable returns (BalanceDelta delta) {
         _requireCanonicalPool(key);
         return _swap(key, params);

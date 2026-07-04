@@ -16,7 +16,17 @@
         </p>
         <div class="hero-actions">
           <button id="connectBtn" type="button">Connect Wallet</button>
-          <button id="loadConfigBtn" type="button" class="secondary">Load config.json</button>
+          <button id="addNetworkBtn" type="button" class="secondary">Add Robinhood Network</button>
+          <button id="loadConfigBtn" type="button" class="secondary">Reload config</button>
+        </div>
+        <div class="network-row">
+          <label>
+            Network
+            <select id="networkSelect">
+              <option value="testnet">Robinhood Testnet</option>
+              <option value="mainnet">Robinhood Mainnet</option>
+            </select>
+          </label>
         </div>
         <p id="walletStatus" class="status">Wallet not connected</p>
       </header>
@@ -24,11 +34,16 @@
       <section class="panel">
         <h2>Buy $INVEST</h2>
         <p class="hint">Swaps must use <code>InvestingSwapRouter</code> so volume credits your wallet.</p>
-        <label>
-          WETH to spend
-          <input id="wethAmount" type="text" inputmode="decimal" placeholder="0.1" />
-        </label>
+        <p id="minSwapHint" class="status">Minimum counted buy volume per swap: 1,000 INVEST</p>
+        <div class="amount-row">
+          <label>
+            WETH to spend
+            <input id="wethAmount" type="text" inputmode="decimal" placeholder="0.1" />
+          </label>
+          <button id="maxWethBtn" type="button" class="secondary compact" disabled>Max</button>
+        </div>
         <p id="wethBalance" class="status">WETH balance: —</p>
+        <p id="swapHint" class="status"></p>
         <button id="swapBtn" type="button" disabled>Buy INVEST with WETH</button>
       </section>
 
@@ -68,6 +83,7 @@
         <h2>Contracts</h2>
         <div class="config-grid">
           <label>Chain ID <input id="chainId" type="number" value="46630" /></label>
+          <label>Explorer URL <input id="explorerUrl" type="text" placeholder="https://explorer.testnet.chain.robinhood.com" /></label>
           <label>NFT <input id="nftAddress" type="text" placeholder="0x..." /></label>
           <label>Swap router <input id="swapRouterAddress" type="text" placeholder="0x..." /></label>
           <label>INVEST token <input id="investTokenAddress" type="text" placeholder="0x..." /></label>

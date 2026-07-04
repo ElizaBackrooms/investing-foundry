@@ -5,7 +5,8 @@ import "forge-std/Test.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
-import {SwapParams, ModifyLiquidityParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {ModifyLiquidityParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
@@ -21,7 +22,7 @@ import "../src/InvestingSwapRouter.sol";
 import "../src/InvestingConfig.sol";
 import "../src/utils/HookMiner.sol";
 
-contract InvestingHookIntegrationTest is Test {
+contract InvestingFuzzTest is Test {
     IPoolManager internal manager;
     InvestingSwapRouter internal swapRouter;
     PoolModifyLiquidityTest internal modifyLiquidityRouter;
@@ -32,7 +33,6 @@ contract InvestingHookIntegrationTest is Test {
     PoolKey internal key;
 
     address internal trader = makeAddr("trader");
-    uint256 internal constant LEVEL = 100_000 ether;
 
     function setUp() public {
         manager = new PoolManager(address(this));
@@ -77,50 +77,25 @@ contract InvestingHookIntegrationTest is Test {
         );
     }
 
-    function test_buyInvestWithWethRecordsVolume() public {
-        uint128 wethIn = uint128(LEVEL);
+    function testFuzz_buyInvestWithWethAccumulatesVolume(uint128 wethAmountIn) public {
+        vm.assume(wethAmountIn >= InvestingConfig.MIN_SWAP_VOLUME);
+        vm.assume(wethAmountIn <= 10_000_000 ether);
+
         uint256 before = nft.investAccumulated(trader);
 
         vm.prank(trader);
-        swapRouter.buyInvestWithWeth(key, wethIn);
+        BalanceDelta delta = swapRouter.buyInvestWithWeth(key, wethAmountIn);
+
+        bool investIsToken0 = Currency.unwrap(key.currency0) == address(investToken);
+        int128 investDelta = investIsToken0 ? delta.amount0() : delta.amount1();
+        vm.assume(investDelta > 0);
+        uint256 investBought = uint256(int256(investDelta));
 
         uint256 afterBuy = nft.investAccumulated(trader);
-        assertGt(afterBuy, InvestingConfig.MIN_SWAP_VOLUME);
-        assertGt(afterBuy, before);
-    }
-
-    function test_sellInvestForWethDoesNotRecordVolume() public {
-        uint128 wethIn = uint128(LEVEL);
-
-        vm.prank(trader);
-        swapRouter.buyInvestWithWeth(key, wethIn);
-
-        uint256 accumulatedAfterBuy = nft.investAccumulated(trader);
-        assertGt(accumulatedAfterBuy, InvestingConfig.MIN_SWAP_VOLUME);
-
-        uint128 investToSell = uint128(investToken.balanceOf(trader));
-        assertGt(investToSell, InvestingConfig.MIN_SWAP_VOLUME);
-
-        vm.startPrank(trader);
-        investToken.approve(address(swapRouter), investToSell);
-        swapRouter.sellInvestForWeth(key, investToSell);
-        vm.stopPrank();
-
-        assertEq(nft.investAccumulated(trader), accumulatedAfterBuy);
-    }
-
-    function test_swapRouterRecordsBuyVolumeForTrader() public {
-        bool investIsToken0 = Currency.unwrap(key.currency0) == address(investToken);
-        SwapParams memory params = SwapParams({
-            zeroForOne: !investIsToken0,
-            amountSpecified: int256(LEVEL),
-            sqrtPriceLimitX96: investIsToken0 ? TickMath.MAX_SQRT_PRICE - 1 : TickMath.MIN_SQRT_PRICE + 1
-        });
-
-        vm.prank(trader);
-        swapRouter.swap(key, params);
-
-        assertGt(nft.investAccumulated(trader), InvestingConfig.MIN_SWAP_VOLUME);
-        assertEq(nft.balanceOf(trader), 0);
+        if (investBought >= InvestingConfig.MIN_SWAP_VOLUME) {
+            assertEq(afterBuy, before + investBought);
+        } else {
+            assertEq(afterBuy, before);
+        }
     }
 }
