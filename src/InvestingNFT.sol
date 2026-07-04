@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {IInvestingToken} from "./interfaces/IInvestingToken.sol";
 
@@ -11,7 +12,7 @@ import {IInvestingToken} from "./interfaces/IInvestingToken.sol";
  * @dev Generates on-chain SVG feather NFTs representing investment levels.
  *      Users claim their next feather based on their token balance.
  */
-contract InvestingNFT is ERC721URIStorage {
+contract InvestingNFT is ERC721URIStorage, ReentrancyGuard {
     using Strings for uint256;
 
     uint256 private _nextTokenId;
@@ -49,7 +50,7 @@ contract InvestingNFT is ERC721URIStorage {
      * @dev Allows a user to claim their next feather(s) based on their current token balance.
      *      Computes level = balance / 1e18 and mints any missing levels.
      */
-    function claimNextFeather() public {
+    function claimNextFeather() public nonReentrant {
         uint256 balance = IInvestingToken(investingToken).balanceOf(msg.sender);
         uint256 level = balance / 1e18; // Whole number of tokens
 
@@ -147,6 +148,11 @@ contract InvestingNFT is ERC721URIStorage {
                 encoded[pos++] = 0x25;
                 encoded[pos++] = 0x33;
                 encoded[pos++] = 0x45;
+            } else if (b[i] == 0x23) {
+                // #
+                encoded[pos++] = 0x25;
+                encoded[pos++] = 0x32;
+                encoded[pos++] = 0x33;
             } else {
                 encoded[pos++] = b[i];
             }

@@ -28,7 +28,7 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 - Uniswap v4 hook that attaches to a pool
 - Emits `SwapOccurred` and `MintTriggered` events on swaps
 - Does NOT perform minting directly (eliminates exploit vectors)
-- Calls the NFT contract's `mintUpTo` function (which does balance checking)
+- Users claim NFTs separately via `claimNextFeather()` on the NFT contract
 
 ## Security
 
@@ -136,7 +136,7 @@ User receives Investing Feather NFT (on-chain SVG)
 
 ## Security Notes
 
-- Never call `mintUpTo` directly on the NFT contract - always use `claimNextFeather()`
+- Always use `claimNextFeather()` to mint NFTs based on your token balance
 - The hook is intentionally minimal - it only emits events and calls the trusted NFT contract
 - All financial logic (balance checking) resides in the NFT contract
 - Contracts use OpenZeppelin's battle-tested libraries

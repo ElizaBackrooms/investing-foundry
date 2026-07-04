@@ -44,22 +44,27 @@ contract InvestingHook {
         int24, /* tick */
         bytes calldata hookData
     ) external {
-        // Emit swap event for indexing
-        emit SwapOccurred(msg.sender, deltaBalances0, deltaBalances1);
-
-        address user;
-        if (hookData.length == 20) {
-            user = address(bytes20(hookData));
-        } else if (hookData.length >= 32) {
-            user = abi.decode(hookData, (address));
-        } else {
+        address user = _decodeUser(hookData);
+        if (user == address(0)) {
             return;
         }
+
+        emit SwapOccurred(user, deltaBalances0, deltaBalances1);
 
         uint256 balance = IInvestingToken(investingToken).balanceOf(user);
         uint256 level = balance / 1e18;
 
         emit MintTriggered(user, level);
+    }
+
+    function _decodeUser(bytes calldata hookData) internal pure returns (address user) {
+        if (hookData.length == 20) {
+            return address(bytes20(hookData));
+        }
+        if (hookData.length >= 32) {
+            return abi.decode(hookData, (address));
+        }
+        return address(0);
     }
 
     // --- Other hook interfaces (empty implementations to save gas) ---
