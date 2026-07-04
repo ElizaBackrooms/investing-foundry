@@ -46,7 +46,9 @@ contract InvestingHook {
 
         IInvestingNFT(investingNFT).recordInvestFromSwap(user, investBought);
 
-        uint256 eligible = IInvestingNFT(investingNFT).investAccumulated(user) / 1e18;
+        uint256 accumulated = IInvestingNFT(investingNFT).investAccumulated(user);
+        uint256 tokensPerLevel = IInvestingNFT(investingNFT).TOKENS_PER_LEVEL();
+        uint256 eligible = accumulated / tokensPerLevel;
         emit InvestRecorded(user, investBought, eligible);
     }
 

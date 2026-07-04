@@ -7,7 +7,9 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 **Key Mechanics:**
 - Trade $INVEST on Uniswap v4 (with our hook attached)
 - Hook records cumulative INVEST **bought** on each swap
-- Your feather level = total INVEST bought / 1 token (lifetime swap volume)
+- Your feather level = total INVEST bought ÷ 1 whole token (lifetime swap volume)
+- **Level 1** = full gold base feather (the canonical design)
+- Higher levels = same feather, new accent colors
 - Users call `claimNextFeather()` to mint NFTs — **no token balance required at claim**
 - Each NFT represents a "version" of investing (v1, v2, v3...) with unique feather art
 - On-chain SVG generation - no IPFS needed
@@ -15,14 +17,15 @@ Investing is a Unipeg-style project on Robinhood Chain where trading the $INVEST
 ## Contracts
 
 ### InvestingToken.sol
-- ERC20 token with fixed supply of 10,000 $INVEST
+- ERC20 token with fixed supply of **1,000,000,000** $INVEST
 - Simple and secure - no mint/burn beyond initial allocation
 
 ### InvestingNFT.sol
 - ERC721 token representing "Investing" feather NFTs
 - **Claim-based minting**: Users must call `claimNextFeather()` to mint
+- **Level 1 = base feather**: Full ornate gold design on first claim; higher levels change color only
 - **Swap-earned levels**: Hook records cumulative INVEST purchased; claim uses that volume, not wallet balance
-- On-chain SVG feather generation (level 10 base silhouette)
+- On-chain SVG feather generation from the level-1 base silhouette
 - Only the verified hook address may record swap volume
 
 ### InvestingHook.sol
