@@ -36,12 +36,12 @@ contract InvestingHookIntegrationTest is Test {
 
     function setUp() public {
         manager = new PoolManager(address(this));
-        swapRouter = new InvestingSwapRouter(manager);
         modifyLiquidityRouter = new PoolModifyLiquidityTest(manager);
 
         investToken = new InvestingToken();
         weth = new MockERC20("WETH", "WETH", 18);
         nft = new InvestingNFT();
+        swapRouter = new InvestingSwapRouter(manager, address(investToken), address(weth));
 
         MockERC20 investAsMock = MockERC20(address(investToken));
 
@@ -75,6 +75,15 @@ contract InvestingHookIntegrationTest is Test {
             ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: 1e24, salt: 0}),
             Constants.ZERO_BYTES
         );
+    }
+
+    function test_buyInvestWithWethRecordsVolume() public {
+        uint128 wethIn = uint128(LEVEL);
+
+        vm.prank(trader);
+        swapRouter.buyInvestWithWeth(key, wethIn);
+
+        assertGt(nft.investAccumulated(trader), InvestingConfig.MIN_SWAP_VOLUME);
     }
 
     function test_swapRouterRecordsBuyVolumeForTrader() public {
