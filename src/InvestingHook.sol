@@ -5,6 +5,7 @@ import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {BaseHookStub} from "./BaseHookStub.sol";
@@ -13,7 +14,7 @@ import {IInvestingNFT} from "./interfaces/IInvestingNFT.sol";
 
 /**
  * @title Investing Hook
- * @notice Uniswap v4 hook that records INVEST purchased on swaps.
+ * @notice Uniswap v4 hook that records INVEST purchased on swaps in the canonical pool.
  * @dev Eligibility is cumulative buy volume, not wallet balance at claim time.
  */
 contract InvestingHook is BaseHookStub {
@@ -24,24 +25,34 @@ contract InvestingHook is BaseHookStub {
 
     IPoolManager public immutable poolManager;
     address public immutable investingNFT;
+    Currency public immutable investCurrency;
+    Currency public immutable quoteCurrency;
     bool public immutable investIsToken0;
 
     error OnlyPoolManager();
     error PoolManagerZero();
     error NftZero();
+    error InvestTokenZero();
+    error QuoteTokenZero();
+    error SameToken();
 
     modifier onlyPoolManager() {
         if (msg.sender != address(poolManager)) revert OnlyPoolManager();
         _;
     }
 
-    constructor(IPoolManager _poolManager, address _investingNFT, bool _investIsToken0) {
+    constructor(IPoolManager _poolManager, address _investingNFT, address _investToken, address _quoteToken) {
         if (address(_poolManager) == address(0)) revert PoolManagerZero();
         if (_investingNFT == address(0)) revert NftZero();
+        if (_investToken == address(0)) revert InvestTokenZero();
+        if (_quoteToken == address(0)) revert QuoteTokenZero();
+        if (_investToken == _quoteToken) revert SameToken();
 
         poolManager = _poolManager;
         investingNFT = _investingNFT;
-        investIsToken0 = _investIsToken0;
+        investCurrency = Currency.wrap(_investToken);
+        quoteCurrency = Currency.wrap(_quoteToken);
+        investIsToken0 = _investToken < _quoteToken;
 
         IHooks(address(this))
             .validateHookPermissions(
@@ -66,11 +77,15 @@ contract InvestingHook is BaseHookStub {
 
     function afterSwap(
         address sender,
-        PoolKey calldata,
+        PoolKey calldata key,
         SwapParams calldata,
         BalanceDelta delta,
         bytes calldata hookData
     ) external override onlyPoolManager returns (bytes4, int128) {
+        if (!_isCanonicalPool(key)) {
+            return (IHooks.afterSwap.selector, 0);
+        }
+
         address user = _resolveUser(sender, hookData);
         if (user == address(0)) {
             return (IHooks.afterSwap.selector, 0);
@@ -93,6 +108,11 @@ contract InvestingHook is BaseHookStub {
         return (IHooks.afterSwap.selector, 0);
     }
 
+    function _isCanonicalPool(PoolKey calldata key) internal view returns (bool) {
+        return (key.currency0 == investCurrency && key.currency1 == quoteCurrency)
+            || (key.currency0 == quoteCurrency && key.currency1 == investCurrency);
+    }
+
     function _investBought(BalanceDelta delta) internal view returns (uint256) {
         int128 investDelta = investIsToken0 ? delta.amount0() : delta.amount1();
         if (investDelta <= 0) {
@@ -101,11 +121,16 @@ contract InvestingHook is BaseHookStub {
         return uint256(int256(investDelta));
     }
 
-    function _resolveUser(address sender, bytes calldata hookData) internal pure returns (address user) {
+    /// @dev Routers must pass the trader in hookData. EOAs swapping directly may use sender.
+    function _resolveUser(address sender, bytes calldata hookData) internal view returns (address user) {
         user = _decodeUser(hookData);
-        if (user == address(0)) {
-            user = sender;
+        if (user != address(0)) {
+            return user;
         }
+        if (sender.code.length == 0) {
+            return sender;
+        }
+        return address(0);
     }
 
     function _decodeUser(bytes calldata hookData) internal pure returns (address user) {

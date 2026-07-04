@@ -15,6 +15,7 @@ import {InvestingConfig} from "./InvestingConfig.sol";
 contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
     uint256 public constant TOKENS_PER_LEVEL = InvestingConfig.TOKENS_PER_LEVEL;
     uint256 public constant MIN_SWAP_VOLUME = InvestingConfig.MIN_SWAP_VOLUME;
+    uint256 public constant MAX_CLAIM_PER_TX = InvestingConfig.MAX_CLAIM_PER_TX;
 
     uint256 private _nextTokenId;
 
@@ -22,6 +23,7 @@ contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
     mapping(address => uint256) public highestLevel;
     mapping(address => uint256) public investAccumulated;
 
+    address public immutable deployer;
     address public hook;
 
     string private constant BASE_GOLD = "#FFD166";
@@ -32,6 +34,7 @@ contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
     event FeatherClaimed(address indexed owner, uint256 indexed tokenId, uint256 level);
 
     error OnlyHook();
+    error OnlyDeployer();
     error HookAlreadySet();
     error HookZero();
 
@@ -40,9 +43,12 @@ contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
         _;
     }
 
-    constructor() ERC721("Investing", "INVEST") {}
+    constructor() ERC721("Investing", "INVEST") {
+        deployer = msg.sender;
+    }
 
     function setHook(address _hook) external {
+        if (msg.sender != deployer) revert OnlyDeployer();
         if (hook != address(0)) revert HookAlreadySet();
         if (_hook == address(0)) revert HookZero();
         hook = _hook;
@@ -69,6 +75,9 @@ contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
 
         uint256 startLevel = highestLevel[msg.sender] + 1;
         uint256 count = level - highestLevel[msg.sender];
+        if (count > MAX_CLAIM_PER_TX) {
+            count = MAX_CLAIM_PER_TX;
+        }
 
         for (uint256 i = 0; i < count; i++) {
             uint256 tokenId = _nextTokenId++;
@@ -78,7 +87,7 @@ contract InvestingNFT is ERC721URIStorage, ERC721Enumerable, ReentrancyGuard {
             emit FeatherClaimed(msg.sender, tokenId, featherLevel);
         }
 
-        highestLevel[msg.sender] = level;
+        highestLevel[msg.sender] = startLevel + count - 1;
     }
 
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
