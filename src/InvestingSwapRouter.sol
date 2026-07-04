@@ -7,6 +7,7 @@ import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {IERC20Minimal} from "@uniswap/v4-core/src/interfaces/external/IERC20Minimal.sol";
 
 /**
@@ -15,6 +16,9 @@ import {IERC20Minimal} from "@uniswap/v4-core/src/interfaces/external/IERC20Mini
  */
 contract InvestingSwapRouter is IUnlockCallback {
     IPoolManager public immutable manager;
+    address public immutable investToken;
+    address public immutable weth;
+    bool public immutable investIsToken0;
 
     struct CallbackData {
         address sender;
@@ -23,12 +27,42 @@ contract InvestingSwapRouter is IUnlockCallback {
     }
 
     error OnlyPoolManager();
+    error InvalidPool();
+    error ZeroAmount();
+    error TokenZero();
 
-    constructor(IPoolManager _manager) {
+    constructor(IPoolManager _manager, address _investToken, address _weth) {
+        if (_investToken == address(0) || _weth == address(0)) revert TokenZero();
         manager = _manager;
+        investToken = _investToken;
+        weth = _weth;
+        investIsToken0 = _investToken < _weth;
+    }
+
+    /// @notice Buy INVEST with an exact WETH input. Volume is credited to msg.sender.
+    function buyInvestWithWeth(PoolKey calldata key, uint128 wethAmountIn)
+        external
+        payable
+        returns (BalanceDelta delta)
+    {
+        if (wethAmountIn == 0) revert ZeroAmount();
+        _requireCanonicalPool(key);
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: !investIsToken0,
+            amountSpecified: -int256(uint256(wethAmountIn)),
+            sqrtPriceLimitX96: investIsToken0 ? TickMath.MAX_SQRT_PRICE - 1 : TickMath.MIN_SQRT_PRICE + 1
+        });
+
+        return _swap(key, params);
     }
 
     function swap(PoolKey calldata key, SwapParams calldata params) external payable returns (BalanceDelta delta) {
+        _requireCanonicalPool(key);
+        return _swap(key, params);
+    }
+
+    function _swap(PoolKey calldata key, SwapParams memory params) internal returns (BalanceDelta delta) {
         delta = abi.decode(manager.unlock(abi.encode(CallbackData(msg.sender, key, params))), (BalanceDelta));
     }
 
@@ -40,6 +74,14 @@ contract InvestingSwapRouter is IUnlockCallback {
 
         _settle(data.key, data.sender, delta);
         return abi.encode(delta);
+    }
+
+    function _requireCanonicalPool(PoolKey calldata key) internal view {
+        address currency0 = Currency.unwrap(key.currency0);
+        address currency1 = Currency.unwrap(key.currency1);
+        bool matches =
+            (currency0 == investToken && currency1 == weth) || (currency0 == weth && currency1 == investToken);
+        if (!matches) revert InvalidPool();
     }
 
     function _settle(PoolKey memory key, address payer, BalanceDelta delta) internal {

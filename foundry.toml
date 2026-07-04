@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 solc_version = "0.8.26"
 evm_version = "cancun"
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 [fmt]
 line_length = 120

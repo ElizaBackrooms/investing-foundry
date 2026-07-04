@@ -12,14 +12,36 @@
         <p class="eyebrow">Robinhood Chain · Uniswap v4</p>
         <h1>Investing Feathers</h1>
         <p class="lede">
-          Trade $INVEST on the hooked pool to earn feather NFT levels. Claim when you are eligible — no token balance required.
+          Buy $INVEST through the official swap router to earn feather levels. Claim NFTs anytime — wallet balance not required.
         </p>
-        <button id="connectBtn" type="button">Connect Wallet</button>
+        <div class="hero-actions">
+          <button id="connectBtn" type="button">Connect Wallet</button>
+          <button id="loadConfigBtn" type="button" class="secondary">Load config.json</button>
+        </div>
         <p id="walletStatus" class="status">Wallet not connected</p>
       </header>
 
       <section class="panel">
+        <h2>Buy $INVEST</h2>
+        <p class="hint">Swaps must use <code>InvestingSwapRouter</code> so volume credits your wallet.</p>
+        <label>
+          WETH to spend
+          <input id="wethAmount" type="text" inputmode="decimal" placeholder="0.1" />
+        </label>
+        <p id="wethBalance" class="status">WETH balance: —</p>
+        <button id="swapBtn" type="button" disabled>Buy INVEST with WETH</button>
+      </section>
+
+      <section class="panel">
         <h2>Your Progress</h2>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress to next level</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar"><div id="progressFill"></div></div>
+          <p id="progressDetail" class="status">—</p>
+        </div>
         <dl class="stats">
           <div>
             <dt>Accumulated buy volume</dt>
@@ -38,26 +60,30 @@
             <dd id="pending">—</dd>
           </div>
         </dl>
-        <button id="claimBtn" type="button" disabled>Claim Next Feather(s)</button>
+        <button id="claimBtn" type="button" disabled>Claim Feathers (max 20 / tx)</button>
         <p id="txStatus" class="status"></p>
       </section>
 
       <section class="panel">
-        <h2>Configuration</h2>
-        <label>
-          NFT contract
-          <input id="nftAddress" type="text" placeholder="0x..." />
-        </label>
-        <label>
-          Chain ID
-          <input id="chainId" type="number" value="46630" />
-        </label>
-        <button id="saveConfigBtn" type="button">Save</button>
+        <h2>Contracts</h2>
+        <div class="config-grid">
+          <label>Chain ID <input id="chainId" type="number" value="46630" /></label>
+          <label>NFT <input id="nftAddress" type="text" placeholder="0x..." /></label>
+          <label>Swap router <input id="swapRouterAddress" type="text" placeholder="0x..." /></label>
+          <label>INVEST token <input id="investTokenAddress" type="text" placeholder="0x..." /></label>
+          <label>WETH <input id="wethAddress" type="text" placeholder="0x..." /></label>
+          <label>Hook <input id="hookAddress" type="text" placeholder="0x..." /></label>
+          <label>Currency 0 <input id="currency0" type="text" placeholder="0x..." /></label>
+          <label>Currency 1 <input id="currency1" type="text" placeholder="0x..." /></label>
+          <label>Pool fee <input id="poolFee" type="number" value="3000" /></label>
+          <label>Tick spacing <input id="tickSpacing" type="number" value="60" /></label>
+        </div>
+        <button id="saveConfigBtn" type="button">Save locally</button>
       </section>
 
       <section class="panel">
         <h2>Your Feathers</h2>
-        <div id="gallery" class="gallery"></div>
+        <div id="gallery" class="gallery empty-state">Connect and claim to see your feathers.</div>
       </section>
     </main>
 

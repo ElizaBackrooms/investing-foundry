@@ -114,14 +114,17 @@ forge script script/DeployPool.s.sol:DeployPool \
 
 ## Frontend
 
-A minimal claim UI lives in [`frontend/`](frontend/):
+Full swap + claim UI in [`frontend/`](frontend/):
 
 ```bash
+# After deploy, copy the manifest into the frontend folder
+cp deployments/latest.json frontend/config.json
+
 cd frontend
 python -m http.server 8080
 ```
 
-Open `http://localhost:8080`, paste the deployed NFT address, connect your wallet, and claim.
+Open `http://localhost:8080`, connect wallet, load config, buy INVEST with WETH via `InvestingSwapRouter`, then claim feathers.
 
 ## Development
 
@@ -130,7 +133,7 @@ Open `http://localhost:8080`, paste the deployed NFT address, connect your walle
 forge test
 ```
 
-25 tests: unit tests for claiming, hook auth, metadata, anti-wash, pool validation, router attribution, plus a v4 integration test.
+26 tests: unit tests for claiming, hook auth, metadata, anti-wash, pool validation, router attribution, plus v4 integration tests.
 
 ### Formatting
 ```bash

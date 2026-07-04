@@ -47,6 +47,18 @@ body {
   line-height: 1.6;
 }
 
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
 button {
   background: var(--gold);
   color: #111;
@@ -55,6 +67,12 @@ button {
   padding: 0.75rem 1.25rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
 }
 
 button:disabled {
@@ -71,6 +89,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
+  margin: 1rem 0;
 }
 
 .stats dt {
@@ -84,10 +103,37 @@ button:disabled {
   color: var(--gold);
 }
 
+.progress-wrap {
+  margin-bottom: 1rem;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: #1d1d1d;
+  overflow: hidden;
+}
+
+#progressFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #c9a020, var(--gold));
+  transition: width 0.25s ease;
+}
+
 label {
   display: block;
   margin-bottom: 0.75rem;
   color: var(--muted);
+  font-size: 0.9rem;
 }
 
 input {
@@ -100,10 +146,21 @@ input {
   color: var(--text);
 }
 
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
+}
+
+.gallery.empty-state {
+  display: block;
+  color: var(--muted);
 }
 
 .card {
@@ -123,4 +180,10 @@ input {
   margin: 0;
   padding: 0.75rem;
   text-align: center;
+}
+
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  color: var(--accent);
 }
