@@ -2,9 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import {IInvestingToken} from "./interfaces/IInvestingToken.sol";
 
 /**
  * @title Investing NFT
@@ -12,11 +11,10 @@ import "@openzeppelin/contracts/utils/Strings.sol";
  * @dev Generates on-chain SVG feather NFTs representing investment levels.
  *      Users claim their next feather based on their token balance.
  */
-contract InvestingNFT is ERC721URIStorage, Ownable {
-    using Counters for Counters.Counter;
+contract InvestingNFT is ERC721URIStorage {
     using Strings for uint256;
 
-    Counters.Counter private _tokenIds;
+    uint256 private _nextTokenId;
 
     // Mapping from tokenId to level
     mapping(uint256 => uint256) public tokenIdToLevel;
@@ -32,7 +30,7 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
         "#FF00FF", // Magenta
         "#00FFFF", // Cyan
         "#FFA500", // Orange
-        "#800080"  // Purple
+        "#800080" // Purple
     ];
 
     // Trusted token address (set at construction)
@@ -63,7 +61,7 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
         uint256 count = level - highestLevel[msg.sender];
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 tokenId = _tokenIds.increment();
+            uint256 tokenId = _nextTokenId++;
             _safeMint(msg.sender, tokenId);
             tokenIdToLevel[tokenId] = startLevel + i;
         }
@@ -76,13 +74,8 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
      * @param tokenId The NFT token ID
      * @return SVG data URL string
      */
-    function tokenUri(uint256 tokenId)
-        public
-        view
-        override
-        returns (string memory)
-    {
-        require(_exists(tokenId), "Token does not exist");
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
         uint256 level = tokenIdToLevel[tokenId];
 
         // Calculate feather height based on level (100-180px)
@@ -105,8 +98,20 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
             abi.encodePacked(
                 "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'>",
                 "<rect width='240' height='240' fill='#000000'/>",
-                "<rect x='110' y='", yStr, "' width='20' height='", heightStr, "' fill='", color, "'/>",
-                "<polygon points='120,20 110,", yStr, ",130,", yStr, "' fill='", color, "'/>",
+                "<rect x='110' y='",
+                yStr,
+                "' width='20' height='",
+                heightStr,
+                "' fill='",
+                color,
+                "'/>",
+                "<polygon points='120,20 110,",
+                yStr,
+                ",130,",
+                yStr,
+                "' fill='",
+                color,
+                "'/>",
                 "</svg>"
             )
         );
@@ -121,25 +126,24 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
      * @param str String to encode
      * @return URL-encoded string
      */
-    function _urlEncode(string memory str)
-        internal
-        pure
-        returns (string memory)
-    {
+    function _urlEncode(string memory str) internal pure returns (string memory) {
         bytes memory b = bytes(str);
         bytes memory encoded = new bytes(b.length * 3); // Worst case: each byte becomes 3 bytes (%XX)
         uint256 pos;
 
         for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] == 0x20) { // Space
+            if (b[i] == 0x20) {
+                // Space
                 encoded[pos++] = 0x25;
                 encoded[pos++] = 0x32;
                 encoded[pos++] = 0x30;
-            } else if (b[i] == 0x3C) { // <
+            } else if (b[i] == 0x3C) {
+                // <
                 encoded[pos++] = 0x25;
                 encoded[pos++] = 0x33;
                 encoded[pos++] = 0x43;
-            } else if (b[i] == 0x3E) { // >
+            } else if (b[i] == 0x3E) {
+                // >
                 encoded[pos++] = 0x25;
                 encoded[pos++] = 0x33;
                 encoded[pos++] = 0x45;
@@ -148,6 +152,10 @@ contract InvestingNFT is ERC721URIStorage, Ownable {
             }
         }
 
-        return string(encoded[0:pos]);
+        bytes memory trimmed = new bytes(pos);
+        for (uint256 j = 0; j < pos; j++) {
+            trimmed[j] = encoded[j];
+        }
+        return string(trimmed);
     }
 }

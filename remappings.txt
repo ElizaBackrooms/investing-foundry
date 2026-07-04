@@ -1,0 +1,5 @@
+@openzeppelin/=lib/openzeppelin-contracts/
+@uniswap/v4-core/=lib/v4-periphery/lib/v4-core/
+@uniswap/v4-periphery/=lib/v4-periphery/
+forge-std/=lib/openzeppelin-contracts/lib/forge-std/src/
+ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/

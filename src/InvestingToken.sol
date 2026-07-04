@@ -9,20 +9,19 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  * @dev Fixed supply of 10,000 tokens.
  */
 contract InvestingToken is ERC20 {
-    uint256 public constant MAX_SUPPLY = 10_000 * 10 ** decimals();
+    uint256 public constant MAX_SUPPLY = 10_000 ether;
 
     constructor() ERC20("Investing", "INVEST") {
         _mint(msg.sender, MAX_SUPPLY);
     }
 
-    // Prevent minting/burning beyond the initial supply.
-    function _mint(address account, uint256 amount) internal override {
-        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
-        super._mint(account, amount);
-    }
-
-    function _burn(address account, uint256 amount) internal override {
-        require(balanceOf(account) >= amount, "Burn amount exceeds balance");
-        super._burn(account, amount);
+    function _update(address from, address to, uint256 value) internal override {
+        if (from == address(0) && totalSupply() + value > MAX_SUPPLY) {
+            revert("Exceeds max supply");
+        }
+        if (to == address(0)) {
+            revert("Burn disabled");
+        }
+        super._update(from, to, value);
     }
 }
