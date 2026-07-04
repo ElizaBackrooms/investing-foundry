@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {BaseHookStub} from "./BaseHookStub.sol";
+import {InvestingConfig} from "./InvestingConfig.sol";
 import {IInvestingNFT} from "./interfaces/IInvestingNFT.sol";
 
 /**
@@ -8,40 +16,71 @@ import {IInvestingNFT} from "./interfaces/IInvestingNFT.sol";
  * @notice Uniswap v4 hook that records INVEST purchased on swaps.
  * @dev Eligibility is cumulative buy volume, not wallet balance at claim time.
  */
-contract InvestingHook {
-    event SwapOccurred(address indexed user, int256 amount0, int256 amount1);
+contract InvestingHook is BaseHookStub {
+    using Hooks for IHooks;
+
+    event SwapOccurred(address indexed user, int128 delta0, int128 delta1);
     event InvestRecorded(address indexed user, uint256 amount, uint256 eligibleLevel);
 
+    IPoolManager public immutable poolManager;
     address public immutable investingNFT;
     bool public immutable investIsToken0;
 
-    constructor(address _investingNFT, bool _investIsToken0) {
-        require(_investingNFT != address(0), "NFT zero");
+    error OnlyPoolManager();
+    error PoolManagerZero();
+    error NftZero();
+
+    modifier onlyPoolManager() {
+        if (msg.sender != address(poolManager)) revert OnlyPoolManager();
+        _;
+    }
+
+    constructor(IPoolManager _poolManager, address _investingNFT, bool _investIsToken0) {
+        if (address(_poolManager) == address(0)) revert PoolManagerZero();
+        if (_investingNFT == address(0)) revert NftZero();
+
+        poolManager = _poolManager;
         investingNFT = _investingNFT;
         investIsToken0 = _investIsToken0;
+
+        IHooks(address(this))
+            .validateHookPermissions(
+                Hooks.Permissions({
+                beforeInitialize: false,
+                afterInitialize: false,
+                beforeAddLiquidity: false,
+                afterAddLiquidity: false,
+                beforeRemoveLiquidity: false,
+                afterRemoveLiquidity: false,
+                beforeSwap: false,
+                afterSwap: true,
+                beforeDonate: false,
+                afterDonate: false,
+                beforeSwapReturnDelta: false,
+                afterSwapReturnDelta: false,
+                afterAddLiquidityReturnDelta: false,
+                afterRemoveLiquidityReturnDelta: false
+            })
+            );
     }
 
     function afterSwap(
-        int256 deltaBalances0,
-        int256 deltaBalances1,
-        uint256,
-        uint128,
-        uint128,
-        uint256,
-        uint256,
-        int24,
+        address sender,
+        PoolKey calldata,
+        SwapParams calldata,
+        BalanceDelta delta,
         bytes calldata hookData
-    ) external {
-        address user = _decodeUser(hookData);
+    ) external override onlyPoolManager returns (bytes4, int128) {
+        address user = _resolveUser(sender, hookData);
         if (user == address(0)) {
-            return;
+            return (IHooks.afterSwap.selector, 0);
         }
 
-        emit SwapOccurred(user, deltaBalances0, deltaBalances1);
+        emit SwapOccurred(user, delta.amount0(), delta.amount1());
 
-        uint256 investBought = _investBought(deltaBalances0, deltaBalances1);
-        if (investBought == 0) {
-            return;
+        uint256 investBought = _investBought(delta);
+        if (investBought < InvestingConfig.MIN_SWAP_VOLUME) {
+            return (IHooks.afterSwap.selector, 0);
         }
 
         IInvestingNFT(investingNFT).recordInvestFromSwap(user, investBought);
@@ -50,19 +89,23 @@ contract InvestingHook {
         uint256 tokensPerLevel = IInvestingNFT(investingNFT).TOKENS_PER_LEVEL();
         uint256 eligible = accumulated / tokensPerLevel;
         emit InvestRecorded(user, investBought, eligible);
+
+        return (IHooks.afterSwap.selector, 0);
     }
 
-    function _investBought(int256 deltaBalances0, int256 deltaBalances1) internal view returns (uint256) {
-        if (investIsToken0) {
-            if (deltaBalances0 >= 0) {
-                return 0;
-            }
-            return uint256(-deltaBalances0);
-        }
-        if (deltaBalances1 >= 0) {
+    function _investBought(BalanceDelta delta) internal view returns (uint256) {
+        int128 investDelta = investIsToken0 ? delta.amount0() : delta.amount1();
+        if (investDelta <= 0) {
             return 0;
         }
-        return uint256(-deltaBalances1);
+        return uint256(int256(investDelta));
+    }
+
+    function _resolveUser(address sender, bytes calldata hookData) internal pure returns (address user) {
+        user = _decodeUser(hookData);
+        if (user == address(0)) {
+            user = sender;
+        }
     }
 
     function _decodeUser(bytes calldata hookData) internal pure returns (address user) {
@@ -74,33 +117,4 @@ contract InvestingHook {
         }
         return address(0);
     }
-
-    function initialize(address) external {}
-    function beforeAddLiquidity(uint256, uint256, uint256, uint256, bytes calldata)
-        external
-        pure
-        returns (uint256 amount0, uint256 amount1)
-    {
-        amount0 = 0;
-        amount1 = 0;
-    }
-    function afterAddLiquidity(uint256, uint256, uint256, int256, bytes calldata) external {}
-    function beforeRemoveLiquidity(uint256, uint256, uint256, uint256, bytes calldata)
-        external
-        pure
-        returns (uint256 amount0, uint256 amount1)
-    {
-        amount0 = 0;
-        amount1 = 0;
-    }
-    function afterRemoveLiquidity(uint256, uint256, uint256, int256, bytes calldata, bool) external {}
-    function beforeSwap(int256, uint160, bytes calldata, int256, int256)
-        external
-        pure
-        returns (int256 amount0Delta, int256 amount1Delta)
-    {
-        amount0Delta = 0;
-        amount1Delta = 0;
-    }
-    function beforeInitialize(uint160, uint256) external {}
 }

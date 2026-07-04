@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Investing Feathers</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Robinhood Chain · Uniswap v4</p>
+        <h1>Investing Feathers</h1>
+        <p class="lede">
+          Trade $INVEST on the hooked pool to earn feather NFT levels. Claim when you are eligible — no token balance required.
+        </p>
+        <button id="connectBtn" type="button">Connect Wallet</button>
+        <p id="walletStatus" class="status">Wallet not connected</p>
+      </header>
+
+      <section class="panel">
+        <h2>Your Progress</h2>
+        <dl class="stats">
+          <div>
+            <dt>Accumulated buy volume</dt>
+            <dd id="accumulated">—</dd>
+          </div>
+          <div>
+            <dt>Eligible level</dt>
+            <dd id="eligible">—</dd>
+          </div>
+          <div>
+            <dt>Claimed level</dt>
+            <dd id="claimed">—</dd>
+          </div>
+          <div>
+            <dt>Pending feathers</dt>
+            <dd id="pending">—</dd>
+          </div>
+        </dl>
+        <button id="claimBtn" type="button" disabled>Claim Next Feather(s)</button>
+        <p id="txStatus" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Configuration</h2>
+        <label>
+          NFT contract
+          <input id="nftAddress" type="text" placeholder="0x..." />
+        </label>
+        <label>
+          Chain ID
+          <input id="chainId" type="number" value="46630" />
+        </label>
+        <button id="saveConfigBtn" type="button">Save</button>
+      </section>
+
+      <section class="panel">
+        <h2>Your Feathers</h2>
+        <div id="gallery" class="gallery"></div>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
