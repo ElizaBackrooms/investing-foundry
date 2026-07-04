@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 100 100">
+  <!-- Level 5: Flight feather - more defined -->
+  <!-- Quill base -->
+  <path d="M50 95 Q50 88 48 82" stroke="#654321" stroke-width="4" fill="none"/>
+  <!-- Shaft -->
+  <path d="M48 82 Q49 50 50 15" stroke="#D2B48C" stroke-width="2.5" fill="none"/>
+  <!-- Barbs left - more organized -->
+  <path d="M48 82 Q25 75 18 78 Q30 70 48 75" fill="#4ECDC4"/>
+  <path d="M48 74 Q22 65 16 68 Q30 58 48 67" fill="#4ECDC4"/>
+  <path d="M48 66 Q24 55 18 58 Q32 48 48 59" fill="#4ECDC4"/>
+  <path d="M49 58 Q28 45 23 47 Q35 38 49 51" fill="#4ECDC4"/>
+  <path d="M49 50 Q32 35 28 37 Q38 28 49 43" fill="#4ECDC4"/>
+  <path d="M50 42 Q38 28 35 30 Q42 22 50 36" fill="#4ECDC4"/>
+  <path d="M50 34 Q42 20 40 22 Q45 15 50 28" fill="#4ECDC4"/>
+  <!-- Barbs right -->
+  <path d="M48 82 Q73 75 82 78 Q70 70 48 75" fill="#4ECDC4"/>
+  <path d="M48 74 Q76 65 84 68 Q70 58 48 67" fill="#4ECDC4"/>
+  <path d="M48 66 Q76 55 82 58 Q68 48 48 59" fill="#4ECDC4"/>
+  <path d="M49 58 Q72 45 77 47 Q65 38 49 51" fill="#4ECDC4"/>
+  <path d="M49 50 Q68 35 72 37 Q62 28 49 43" fill="#4ECDC4"/>
+  <path d="M50 42 Q58 28 60 30 Q55 22 50 36" fill="#4ECDC4"/>
+  <path d="M50 34 Q58 20 60 22 Q55 15 50 28" fill="#4ECDC4"/>
+  <!-- Tip -->
+  <path d="M50 15 Q43 5 50 2 Q57 5 50 15" fill="#4ECDC4"/>
+</svg>

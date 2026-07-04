@@ -1,0 +1,12 @@
+[profile.default]
+src = 'src'
+out = 'out'
+libs = ['lib']
+
+[profile.default.lib]
+'OpenZeppelin/openzeppelin-contracts' = { commits = { 'OpenZeppelin/openzeppelin-contracts' = '4.9.3' } }
+'uniswap/v4-core' = { commits = { 'uniswap/v4-core' = 'v4.0.0' } }
+'uniswap/v4-periphery' = { commits = { 'uniswap/v4-periphery' = 'v4.0.0' } }
+
+[fmt]
+src = ['src', 'script', 'test']
